@@ -1,101 +1,247 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmSeparator } from '@spartan-ng/helm/separator';
+import { filter, map, startWith } from 'rxjs';
 import { AuthStore } from '../core/auth.store';
+import { ThemeStore } from '../core/theme.store';
 import { roleLabel } from '../core/format';
 
 @Component({
   selector: 'ccdr-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmButton, HlmSeparator],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmBadge, HlmButton, HlmSeparator],
   template: `
-    <div class="bg-background min-h-dvh md:grid md:grid-cols-[16rem_1fr]">
+    <div class="bg-background text-foreground min-h-dvh md:grid md:grid-cols-[15.5rem_minmax(0,1fr)]">
       <header class="border-border flex items-center justify-between border-b px-4 py-3 md:hidden">
-        <a routerLink="/app/customers" class="font-semibold tracking-tight">CCDR</a>
+        <p class="text-sm font-semibold tracking-tight">CCDR</p>
         <button hlmBtn variant="outline" size="sm" type="button" (click)="menuOpen.set(!menuOpen())">
           {{ menuOpen() ? 'Close' : 'Menu' }}
         </button>
       </header>
 
       <aside
-        class="border-border bg-sidebar text-sidebar-foreground flex flex-col border-b p-4 md:flex md:min-h-dvh md:border-r md:border-b-0"
+        class="bg-sidebar text-sidebar-foreground border-sidebar-border flex flex-col border-b p-4 md:flex md:sticky md:top-0 md:h-dvh md:overflow-y-auto md:border-r md:border-b-0"
         [class.hidden]="!menuOpen()"
       >
-        <div class="mb-6 hidden md:block">
-          <p class="text-lg font-semibold tracking-tight">CCDR</p>
-          <p class="text-muted-foreground text-xs">Central Customer Data Repository</p>
-        </div>
+        <a
+          [routerLink]="home()"
+          class="flex items-center gap-3 text-inherit no-underline"
+          (click)="menuOpen.set(false)"
+        >
+          <span
+            class="bg-sidebar-primary text-sidebar-primary-foreground grid size-8 place-items-center rounded-md text-[11px] font-semibold"
+          >
+            CC
+          </span>
+          <span>
+            <span class="block text-sm font-semibold tracking-tight">CCDR</span>
+            <span class="text-sidebar-foreground/50 text-[10px] tracking-[0.18em] uppercase">
+              Customer master
+            </span>
+          </span>
+        </a>
 
         @if (auth.tenants().length) {
-          <label class="text-muted-foreground mb-1 block text-xs font-medium" for="tenant">
-            Tenant
-          </label>
-          <select
-            id="tenant"
-            class="border-input bg-background mb-4 h-9 w-full rounded-md border px-2 text-sm"
-            [value]="auth.tenantSlug() ?? ''"
-            (change)="onTenant($event)"
-          >
-            @for (tenant of auth.tenants(); track tenant.tenantId) {
-              <option [value]="tenant.tenant">{{ tenant.name }} ({{ tenant.tenant }})</option>
+          <div class="border-sidebar-border bg-sidebar-accent/50 mt-5 rounded-md border px-3 py-2.5">
+            <p class="text-sidebar-foreground/45 text-[10px] tracking-[0.16em] uppercase">Workspace</p>
+            <label class="sr-only" for="tenant">Tenant</label>
+            <select
+              id="tenant"
+              class="border-sidebar-border bg-sidebar text-sidebar-foreground mt-1 h-8 w-full rounded-md border px-2 text-sm"
+              [value]="auth.tenantSlug() ?? ''"
+              (change)="onTenant($event)"
+            >
+              @for (tenant of auth.tenants(); track tenant.tenantId) {
+                <option [value]="tenant.tenant">{{ tenant.name }}</option>
+              }
+            </select>
+            @if (current(); as tenant) {
+              <p class="text-sidebar-foreground/55 mt-1 text-xs">{{ tenant.businessType }} · {{ tenant.tenant }}</p>
             }
-          </select>
+          </div>
         }
 
-        <nav class="grid gap-1 text-sm" aria-label="Primary">
-          @for (item of nav(); track item.path) {
-            <a
-              [routerLink]="item.path"
-              routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground"
-              class="hover:bg-sidebar-accent rounded-md px-3 py-2"
-              (click)="menuOpen.set(false)"
-            >
-              {{ item.label }}
-            </a>
+        <nav class="mt-5 grid gap-4 text-sm" aria-label="Primary">
+          @for (group of nav(); track group.label) {
+            <div>
+              <p class="text-sidebar-foreground/40 mb-1 px-2 text-[10px] tracking-[0.18em] uppercase">
+                {{ group.label }}
+              </p>
+              <div class="grid gap-0.5">
+                @for (item of group.items; track item.path) {
+                  <a
+                    [routerLink]="item.path"
+                    routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground"
+                    class="hover:bg-sidebar-accent/70 rounded-md px-2.5 py-1.5"
+                    (click)="menuOpen.set(false)"
+                  >
+                    <span class="block leading-tight">{{ item.label }}</span>
+                    <span class="text-sidebar-foreground/45 text-[11px]">{{ item.hint }}</span>
+                  </a>
+                }
+              </div>
+            </div>
           }
         </nav>
 
-        <div hlmSeparator class="my-4"></div>
-
-        <div class="text-muted-foreground mt-auto grid gap-1 text-xs">
-          <p>{{ auth.me()?.email }}</p>
-          <p>{{ roleLabel(auth.role()) }}</p>
-          <button hlmBtn variant="ghost" size="sm" type="button" class="mt-2 justify-start" (click)="auth.logout()">
+        <div class="mt-auto pt-6">
+          <hlm-separator class="bg-sidebar-border mb-4" />
+          <p class="text-sm font-medium">{{ auth.me()?.name || auth.me()?.email }}</p>
+          <p class="text-sidebar-foreground/50 text-xs">{{ roleLabel(auth.role()) }}</p>
+          <button hlmBtn variant="secondary" size="sm" class="mt-3 w-full" type="button" (click)="theme.toggle()">
+            {{ theme.label() }} theme
+          </button>
+          <button hlmBtn variant="ghost" size="sm" class="mt-1 w-full" type="button" (click)="auth.logout()">
             Sign out
           </button>
         </div>
       </aside>
 
-      <main class="min-w-0 p-4 md:p-8">
-        <router-outlet />
+      <main class="bg-background min-w-0">
+        <header class="border-border flex flex-wrap items-end justify-between gap-4 border-b px-4 py-5 md:px-8">
+          <div>
+            <p class="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+              {{ kicker() }}
+            </p>
+            <h1 class="text-2xl font-semibold tracking-tight">{{ title() }}</h1>
+            <p class="text-muted-foreground mt-1 max-w-2xl text-sm">{{ blurb() }}</p>
+          </div>
+          <span hlmBadge variant="outline">{{ envLabel() }}</span>
+        </header>
+        <div class="px-4 py-6 md:px-8">
+          <router-outlet />
+        </div>
       </main>
     </div>
   `,
 })
 export class Shell {
+  private readonly router = inject(Router);
   protected readonly auth = inject(AuthStore);
+  protected readonly theme = inject(ThemeStore);
   protected readonly menuOpen = signal(false);
   protected readonly roleLabel = roleLabel;
 
+  private readonly url = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => event.urlAfterRedirects),
+      startWith(this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  protected readonly current = computed(() => this.auth.currentMembership());
+  protected readonly home = computed(() => this.auth.homePath());
+  protected readonly title = computed(() => this.meta().title);
+  protected readonly kicker = computed(() => this.meta().kicker);
+  protected readonly blurb = computed(() => this.meta().blurb);
+  protected readonly envLabel = computed(() => {
+    const tenant = this.current();
+    const mode = this.theme.dark() ? 'Dark' : 'Light';
+    return tenant ? `${mode} · ${tenant.name}` : `${mode} · Platform`;
+  });
+
   protected readonly nav = computed(() => {
-    const items: { path: string; label: string }[] = [];
+    const groups: { label: string; items: { path: string; label: string; hint: string }[] }[] = [];
     if (this.auth.tenantSlug()) {
-      items.push({ path: '/app/customers', label: 'Customers' });
-      items.push({ path: '/app/attributes', label: 'Attributes' });
-      if (this.auth.canMembers()) items.push({ path: '/app/members', label: 'Members' });
-      if (this.auth.canMappings()) items.push({ path: '/app/mappings', label: 'Mappings' });
-      if (this.auth.canUpload()) items.push({ path: '/app/uploads', label: 'Uploads' });
-      if (this.auth.canMappings()) items.push({ path: '/app/settings', label: 'Settings' });
+      groups.push({
+        label: 'Records',
+        items: [{ path: '/app/customers', label: 'Customers', hint: 'Faceted search' }],
+      });
+      groups.push({
+        label: 'Catalog',
+        items: [{ path: '/app/attributes', label: 'Attributes', hint: 'Define the shape' }],
+      });
+      const intake: { path: string; label: string; hint: string }[] = [];
+      if (this.auth.canMappings()) {
+        intake.push({ path: '/app/mappings', label: 'Mappings', hint: 'Bind Excel headers' });
+      }
+      if (this.auth.canUpload()) {
+        intake.push({ path: '/app/uploads', label: 'Uploads', hint: 'Stage, then commit' });
+      }
+      if (intake.length) groups.push({ label: 'Intake', items: intake });
+      const access: { path: string; label: string; hint: string }[] = [];
+      if (this.auth.canMembers()) {
+        access.push({ path: '/app/members', label: 'Members', hint: 'Who may enter' });
+      }
+      if (this.auth.canMappings()) {
+        access.push({ path: '/app/settings', label: 'Settings', hint: 'Commit policy' });
+      }
+      if (access.length) groups.push({ label: 'Access', items: access });
     }
     if (this.auth.isPlatformAdmin()) {
-      items.push({ path: '/app/platform', label: 'Platform' });
+      groups.push({
+        label: 'Platform',
+        items: [{ path: '/app/platform', label: 'Tenants', hint: 'All workspaces' }],
+      });
     }
-    return items;
+    return groups;
   });
 
   protected async onTenant(event: Event) {
     const value = (event.target as HTMLSelectElement).value;
     this.menuOpen.set(false);
     await this.auth.selectTenant(value);
+  }
+
+  private meta() {
+    const url = this.url();
+    if (url.includes('/attributes')) {
+      return {
+        kicker: 'Catalog',
+        title: 'Attributes',
+        blurb: 'There is no fixed Customer class. These fields are the record.',
+      };
+    }
+    if (url.includes('/mappings/')) {
+      return {
+        kicker: 'Intake',
+        title: 'Mapping overview',
+        blurb: 'Current version, Excel header bindings, and history for this profile.',
+      };
+    }
+    if (url.includes('/mappings')) {
+      return {
+        kicker: 'Intake',
+        title: 'Excel mappings',
+        blurb: 'Map headers to catalog codes. Column order is never guessed.',
+      };
+    }
+    if (url.includes('/uploads')) {
+      return {
+        kicker: 'Intake',
+        title: 'Excel intake',
+        blurb: 'Stage a workbook against an activated mapping, then commit.',
+      };
+    }
+    if (url.includes('/members')) {
+      return {
+        kicker: 'Access',
+        title: 'Members',
+        blurb: 'Invite by email. The seat links on first sign-in.',
+      };
+    }
+    if (url.includes('/settings')) {
+      return {
+        kicker: 'Access',
+        title: 'Tenant settings',
+        blurb: 'Commit writes valid rows, or nothing if any row fails.',
+      };
+    }
+    if (url.includes('/platform')) {
+      return {
+        kicker: 'Platform',
+        title: 'Tenants',
+        blurb: 'Platform admins create workspaces. They do not see customer rows.',
+      };
+    }
+    return {
+      kicker: 'Records',
+      title: 'Customer search',
+      blurb: 'Filters are generated from GET /api/customers/filterable-attributes.',
+    };
   }
 }

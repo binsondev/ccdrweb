@@ -13,6 +13,7 @@ import type {
   FilterableAttribute,
   MappingProfile,
   MappingProfileListResponse,
+  MappingVersion,
   MeResponse,
   Member,
   MyTenantsResponse,
@@ -113,6 +114,16 @@ export class Api {
 
   mappingProfiles() {
     return this.get<MappingProfileListResponse>('/api/mapping-profiles');
+  }
+
+  mappingProfile(id: string) {
+    return this.get<MappingProfile>(`/api/mapping-profiles/${id}`);
+  }
+
+  mappingVersions(id: string) {
+    return this.get<{ profileId: string; currentVersionId: string; versions: MappingVersion[] }>(
+      `/api/mapping-profiles/${id}/versions`,
+    );
   }
 
   createMappingProfile(body: {

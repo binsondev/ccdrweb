@@ -73,6 +73,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/mappings').then((m) => m.MappingsPage),
       },
       {
+        path: 'mappings/:id',
+        canActivate: [tenantGuard],
+        loadComponent: () => import('./pages/mapping-overview').then((m) => m.MappingOverviewPage),
+      },
+      {
         path: 'uploads',
         canActivate: [tenantGuard],
         loadComponent: () => import('./pages/uploads').then((m) => m.UploadsPage),

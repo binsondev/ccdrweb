@@ -1,24 +1,30 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { Api, apiMessage } from './api';
-import { AttributeDefinition, MappingProfile } from './models';
+import { AttributeDefinition, MappingProfile, MappingVersion } from './models';
 
 type MappingsState = {
   loading: boolean;
   saving: boolean;
+  detailLoading: boolean;
   error: string | null;
   notice: string | null;
   profiles: MappingProfile[];
   attributes: AttributeDefinition[];
+  detail: MappingProfile | null;
+  versions: MappingVersion[];
 };
 
 const initial: MappingsState = {
   loading: false,
   saving: false,
+  detailLoading: false,
   error: null,
   notice: null,
   profiles: [],
   attributes: [],
+  detail: null,
+  versions: [],
 };
 
 export const MappingsStore = signalStore(
@@ -43,6 +49,29 @@ export const MappingsStore = signalStore(
 
     return {
       load,
+      async loadDetail(id: string) {
+        patchState(store, { detailLoading: true, error: null });
+        try {
+          const [detail, versions, catalog] = await Promise.all([
+            api.mappingProfile(id),
+            api.mappingVersions(id),
+            api.attributes(),
+          ]);
+          patchState(store, {
+            detailLoading: false,
+            detail,
+            versions: versions.versions,
+            attributes: catalog.attributes,
+          });
+          return true;
+        } catch (err) {
+          patchState(store, { detailLoading: false, detail: null, error: apiMessage(err) });
+          return false;
+        }
+      },
+      clearDetail() {
+        patchState(store, { detail: null, versions: [] });
+      },
       async create(body: {
         name: string;
         headerRowIndex: number;
@@ -68,7 +97,15 @@ export const MappingsStore = signalStore(
         try {
           await api.activateMapping(id);
           patchState(store, { notice: 'Mapping activated.' });
-          return load();
+          await load();
+          if (store.detail()?.id === id) {
+            const [detail, versions] = await Promise.all([
+              api.mappingProfile(id),
+              api.mappingVersions(id),
+            ]);
+            patchState(store, { detail, versions: versions.versions });
+          }
+          return true;
         } catch (err) {
           patchState(store, { error: apiMessage(err) });
           return false;

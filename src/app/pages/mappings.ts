@@ -1,4 +1,5 @@
 import { Component, effect, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -6,6 +7,7 @@ import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
 import { MappingsStore } from '../core/mappings.store';
+import { MappingProfile } from '../core/models';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
@@ -13,22 +15,18 @@ import { StatusBanner } from '../shared/status-banner';
   imports: [HlmBadge, HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmTableImports],
   template: `
     <div class="grid gap-6">
-      <header class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Excel mappings</h1>
-        <p class="text-muted-foreground text-sm">
-          Named column-to-attribute contracts. Extraction never guesses column order. Activate a
-          version before uploading a workbook.
-        </p>
-      </header>
-
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
       <section hlmCard>
-        <div hlmCardContent>
+        <div hlmCardHeader class="border-border border-b">
+          <h2 hlmCardTitle>Profiles</h2>
+          <p hlmCardDescription>Click a mapping to open its overview.</p>
+        </div>
+        <div hlmCardContent class="p-0">
           @if (store.loading()) {
-            <p class="text-muted-foreground text-sm">Loading mapping profiles…</p>
+            <p class="text-muted-foreground px-4 py-6 text-sm">Loading mapping profiles…</p>
           } @else if (!store.profiles().length) {
-            <p class="text-muted-foreground text-sm">No mapping profiles yet.</p>
+            <p class="text-muted-foreground px-4 py-6 text-sm">No mapping profiles yet.</p>
           } @else {
             <div hlmTableContainer>
               <table hlmTable>
@@ -45,7 +43,11 @@ import { StatusBanner } from '../shared/status-banner';
                 </thead>
                 <tbody hlmTBody>
                   @for (profile of store.profiles(); track profile.id) {
-                    <tr hlmTr>
+                    <tr
+                      hlmTr
+                      class="hover:bg-muted/50 cursor-pointer"
+                      (click)="open(profile)"
+                    >
                       <td hlmTd>
                         {{ profile.name }}
                         @if (profile.isDefault) {
@@ -64,7 +66,13 @@ import { StatusBanner } from '../shared/status-banner';
                       @if (auth.canCatalogWrite()) {
                         <td hlmTd>
                           @if (!profile.current.activated) {
-                            <button hlmBtn variant="outline" size="sm" type="button" (click)="store.activate(profile.id)">
+                            <button
+                              hlmBtn
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              (click)="activate($event, profile.id)"
+                            >
                               Activate
                             </button>
                           }
@@ -125,6 +133,7 @@ import { StatusBanner } from '../shared/status-banner';
   `,
 })
 export class MappingsPage {
+  private readonly router = inject(Router);
   protected readonly auth = inject(AuthStore);
   protected readonly store = inject(MappingsStore);
   protected readonly bindings = signal([{ excelHeader: '', attributeCode: '' }]);
@@ -135,6 +144,15 @@ export class MappingsPage {
         void this.store.load();
       }
     });
+  }
+
+  protected open(profile: MappingProfile) {
+    void this.router.navigate(['/app/mappings', profile.id]);
+  }
+
+  protected activate(event: Event, id: string) {
+    event.stopPropagation();
+    void this.store.activate(id);
   }
 
   protected addBinding() {
