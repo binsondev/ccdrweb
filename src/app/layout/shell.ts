@@ -200,7 +200,7 @@ export class Shell {
       return {
         kicker: 'Intake',
         title: 'Mapping overview',
-        blurb: 'Current version, Excel header bindings, and history for this profile.',
+        blurb: 'Download an empty workbook with these headers, then fill and upload.',
       };
     }
     if (url.includes('/mappings')) {

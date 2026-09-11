@@ -7,6 +7,7 @@ type MappingsState = {
   loading: boolean;
   saving: boolean;
   detailLoading: boolean;
+  downloading: boolean;
   error: string | null;
   notice: string | null;
   profiles: MappingProfile[];
@@ -19,6 +20,7 @@ const initial: MappingsState = {
   loading: false,
   saving: false,
   detailLoading: false,
+  downloading: false,
   error: null,
   notice: null,
   profiles: [],
@@ -89,6 +91,23 @@ export const MappingsStore = signalStore(
           return load();
         } catch (err) {
           patchState(store, { saving: false, error: apiMessage(err) });
+          return false;
+        }
+      },
+      async downloadTemplate(id: string) {
+        patchState(store, { downloading: true, error: null, notice: null });
+        try {
+          const file = await api.downloadMappingTemplate(id);
+          const url = URL.createObjectURL(file.blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = file.fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+          patchState(store, { downloading: false, notice: `Downloaded ${file.fileName}. Fill the header row, then upload.` });
+          return true;
+        } catch (err) {
+          patchState(store, { downloading: false, error: apiMessage(err) });
           return false;
         }
       },

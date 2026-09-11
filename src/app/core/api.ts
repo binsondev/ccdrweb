@@ -141,6 +141,23 @@ export class Api {
     return this.post<MappingProfile>(`/api/mapping-profiles/${id}/activate`, {});
   }
 
+  async downloadMappingTemplate(id: string) {
+    const response = await firstValueFrom(
+      this.http.get(`/api/mapping-profiles/${id}/template.xlsx`, {
+        observe: 'response',
+        responseType: 'blob',
+      }),
+    );
+    const blob = response.body;
+    if (!blob || blob.size === 0) {
+      throw new Error('The mapping template was empty.');
+    }
+    return {
+      blob,
+      fileName: fileNameFromDisposition(response.headers.get('content-disposition')) ?? 'mapping-template.xlsx',
+    };
+  }
+
   uploads() {
     return this.get<{ tenant: string; batches: UploadBatch[] }>('/api/uploads');
   }
@@ -199,6 +216,20 @@ export class Api {
   private delete(url: string) {
     return firstValueFrom(this.http.delete(url));
   }
+}
+
+function fileNameFromDisposition(header: string | null) {
+  if (!header) return null;
+  const utf = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utf?.[1]) {
+    try {
+      return decodeURIComponent(utf[1].trim());
+    } catch {
+      return utf[1].trim();
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain?.[1]?.trim() || null;
 }
 
 export function apiMessage(error: unknown): string {

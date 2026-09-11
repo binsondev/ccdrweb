@@ -19,6 +19,16 @@ import { StatusBanner } from '../shared/status-banner';
       <div class="flex flex-wrap items-center gap-3">
         <a hlmBtn variant="outline" size="sm" routerLink="/app/mappings">Back to mappings</a>
         @if (profile(); as profile) {
+          <button
+            hlmBtn
+            variant="secondary"
+            size="sm"
+            type="button"
+            [disabled]="store.downloading() || !profile.current.bindings.length"
+            (click)="store.downloadTemplate(profile.id)"
+          >
+            {{ store.downloading() ? 'Downloading…' : 'Download empty Excel' }}
+          </button>
           @if (auth.canCatalogWrite() && !profile.current.activated) {
             <button hlmBtn size="sm" type="button" (click)="store.activate(profile.id)">Activate version</button>
           }
@@ -92,6 +102,7 @@ import { StatusBanner } from '../shared/status-banner';
             <h2 hlmCardTitle>Column bindings</h2>
             <p hlmCardDescription>
               {{ profile()!.current.bindings.length }} Excel headers mapped to catalog codes.
+              Download an empty workbook with these headers to fill and upload.
             </p>
           </div>
           <div hlmCardContent class="p-0">
