@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormField, form, required } from '@angular/forms/signals';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -10,7 +11,7 @@ import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-login',
-  imports: [FormField, HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmFieldImports],
+  imports: [RouterLink, FormField, HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmFieldImports],
   template: `
     <main class="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4 py-10">
       <section hlmCard>
@@ -19,6 +20,7 @@ import { StatusBanner } from '../shared/status-banner';
           <p hlmCardDescription>
             Local development issues a JWT from the API. Production will use your identity provider
             instead of this screen.
+            <a routerLink="/prototype/login" class="ml-1 underline underline-offset-4">View UI prototype</a>
           </p>
         </div>
         <div hlmCardContent class="grid gap-6">

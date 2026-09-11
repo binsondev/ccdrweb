@@ -3,6 +3,41 @@ import { authGuard, guestGuard, platformGuard, tenantGuard } from './core/auth.g
 
 export const routes: Routes = [
   {
+    path: 'prototype/login',
+    loadComponent: () => import('./prototype/login').then((m) => m.PrototypeLogin),
+  },
+  {
+    path: 'prototype',
+    loadComponent: () => import('./prototype/shell').then((m) => m.PrototypeShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'customers' },
+      {
+        path: 'customers',
+        loadComponent: () => import('./prototype/customers').then((m) => m.PrototypeCustomers),
+      },
+      {
+        path: 'attributes',
+        loadComponent: () => import('./prototype/attributes').then((m) => m.PrototypeAttributes),
+      },
+      {
+        path: 'intake',
+        loadComponent: () => import('./prototype/intake').then((m) => m.PrototypeIntake),
+      },
+      {
+        path: 'members',
+        loadComponent: () => import('./prototype/members').then((m) => m.PrototypeMembers),
+      },
+      {
+        path: 'settings',
+        loadComponent: () => import('./prototype/settings').then((m) => m.PrototypeSettings),
+      },
+      {
+        path: 'tenants',
+        loadComponent: () => import('./prototype/tenants').then((m) => m.PrototypeTenants),
+      },
+    ],
+  },
+  {
     path: 'login',
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/login').then((m) => m.LoginPage),

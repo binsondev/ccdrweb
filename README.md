@@ -15,6 +15,8 @@ npm start
 
 Open [http://127.0.0.1:4317](http://127.0.0.1:4317). Sign in with a seeded development user (for example `acme.admin@local`). There is no password store — local JWT issuance is `POST /api/dev/token`.
 
+A clickable **UI prototype** (mock Acme Health data, not the API) is at [http://127.0.0.1:4317/prototype/login](http://127.0.0.1:4317/prototype/login).
+
 ## MCP (Cursor Desktop)
 
 This agent session cannot attach Angular CLI or Spartan MCP servers. For Cursor Desktop, `.cursor/mcp.json` already registers:
