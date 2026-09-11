@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { Api, apiMessage } from './api';
-import { AttributeDefinition, MappingProfile, MappingVersion } from './models';
+import { AttributeDefinition, MappingBindingDraft, MappingProfile, MappingVersion } from './models';
 
 type MappingsState = {
   loading: boolean;
@@ -49,28 +49,30 @@ export const MappingsStore = signalStore(
       }
     };
 
+    const loadDetail = async (id: string) => {
+      patchState(store, { detailLoading: true, error: null });
+      try {
+        const [detail, versions, catalog] = await Promise.all([
+          api.mappingProfile(id),
+          api.mappingVersions(id),
+          api.attributes(),
+        ]);
+        patchState(store, {
+          detailLoading: false,
+          detail,
+          versions: versions.versions,
+          attributes: catalog.attributes,
+        });
+        return true;
+      } catch (err) {
+        patchState(store, { detailLoading: false, detail: null, error: apiMessage(err) });
+        return false;
+      }
+    };
+
     return {
       load,
-      async loadDetail(id: string) {
-        patchState(store, { detailLoading: true, error: null });
-        try {
-          const [detail, versions, catalog] = await Promise.all([
-            api.mappingProfile(id),
-            api.mappingVersions(id),
-            api.attributes(),
-          ]);
-          patchState(store, {
-            detailLoading: false,
-            detail,
-            versions: versions.versions,
-            attributes: catalog.attributes,
-          });
-          return true;
-        } catch (err) {
-          patchState(store, { detailLoading: false, detail: null, error: apiMessage(err) });
-          return false;
-        }
-      },
+      loadDetail,
       clearDetail() {
         patchState(store, { detail: null, versions: [] });
       },
@@ -79,7 +81,12 @@ export const MappingsStore = signalStore(
         headerRowIndex: number;
         ignoreUnmappedColumns: boolean;
         isDefault: boolean;
-        bindings: { excelHeader: string; attributeCode: string; transforms: string[] }[];
+        bindings: {
+          excelHeader: string;
+          attributeCode: string;
+          transforms: string[];
+          dateFormat?: string | null;
+        }[];
       }) {
         patchState(store, { saving: true, error: null, notice: null });
         try {
@@ -89,6 +96,42 @@ export const MappingsStore = signalStore(
             notice: 'Mapping profile created. Activate it before uploads.',
           });
           return load();
+        } catch (err) {
+          patchState(store, { saving: false, error: apiMessage(err) });
+          return false;
+        }
+      },
+      async saveBindings(id: string, drafts: MappingBindingDraft[]) {
+        const detail = store.detail();
+        if (!detail) return false;
+        const bindings = drafts
+          .filter((row) => row.excelHeader.trim() && row.attributeCode)
+          .map((row) => ({
+            excelHeader: row.excelHeader.trim(),
+            attributeCode: row.attributeCode,
+            transforms: row.transforms,
+            dateFormat: row.dateFormat.trim() || null,
+          }));
+        const wasImmutable = detail.current.immutable;
+        patchState(store, { saving: true, error: null, notice: null });
+        try {
+          const saved = await api.updateMappingProfile(id, {
+            name: detail.name,
+            description: detail.description,
+            sheetName: detail.current.sheetName,
+            headerRowIndex: detail.current.headerRowIndex,
+            ignoreUnmappedColumns: detail.current.ignoreUnmappedColumns,
+            isDefault: detail.isDefault,
+            bindings,
+          });
+          patchState(store, {
+            saving: false,
+            notice: wasImmutable
+              ? `Saved as v${saved.current.versionNumber}. Activate it before uploads use the new columns.`
+              : 'Bindings saved.',
+          });
+          await load();
+          return loadDetail(id);
         } catch (err) {
           patchState(store, { saving: false, error: apiMessage(err) });
           return false;
@@ -109,6 +152,33 @@ export const MappingsStore = signalStore(
         } catch (err) {
           patchState(store, { downloading: false, error: apiMessage(err) });
           return false;
+        }
+      },
+      async clone(id: string) {
+        patchState(store, { saving: true, error: null, notice: null });
+        try {
+          const { profiles } = await api.mappingProfiles();
+          const source = profiles.find((profile) => profile.id === id);
+          if (!source) {
+            patchState(store, { saving: false, error: 'Mapping profile was not found.' });
+            return null;
+          }
+          const taken = new Set(profiles.map((profile) => profile.name.toLowerCase()));
+          let name = `${source.name} copy`;
+          let n = 2;
+          while (taken.has(name.toLowerCase())) {
+            name = `${source.name} copy ${n++}`;
+          }
+          const copied = await api.cloneMapping(id, name);
+          patchState(store, {
+            saving: false,
+            notice: `Copied as “${copied.name}”. It is a draft until you activate it.`,
+          });
+          await load();
+          return copied;
+        } catch (err) {
+          patchState(store, { saving: false, error: apiMessage(err) });
+          return null;
         }
       },
       async activate(id: string) {

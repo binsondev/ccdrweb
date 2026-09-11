@@ -7,12 +7,21 @@ import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
 import { MappingsStore } from '../core/mappings.store';
-import { MappingProfile } from '../core/models';
+import { emptyBindingDraft, MappingBindingDraft, MappingProfile } from '../core/models';
+import { MappingBindingsEditor } from '../shared/mapping-bindings';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-mappings',
-  imports: [HlmBadge, HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmTableImports],
+  imports: [
+    HlmBadge,
+    HlmButton,
+    HlmInput,
+    StatusBanner,
+    MappingBindingsEditor,
+    ...HlmCardImports,
+    ...HlmTableImports,
+  ],
   template: `
     <div class="grid gap-6">
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
@@ -65,17 +74,29 @@ import { StatusBanner } from '../shared/status-banner';
                       </td>
                       @if (auth.canCatalogWrite()) {
                         <td hlmTd>
-                          @if (!profile.current.activated) {
+                          <div class="flex flex-wrap gap-2">
                             <button
                               hlmBtn
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               type="button"
-                              (click)="activate($event, profile.id)"
+                              [disabled]="store.saving()"
+                              (click)="copy($event, profile.id)"
                             >
-                              Activate
+                              Copy
                             </button>
-                          }
+                            @if (!profile.current.activated) {
+                              <button
+                                hlmBtn
+                                variant="outline"
+                                size="sm"
+                                type="button"
+                                (click)="activate($event, profile.id)"
+                              >
+                                Activate
+                              </button>
+                            }
+                          </div>
                         </td>
                       }
                     </tr>
@@ -91,40 +112,25 @@ import { StatusBanner } from '../shared/status-banner';
         <section hlmCard>
           <div hlmCardHeader>
             <h2 hlmCardTitle>New profile</h2>
-            <p hlmCardDescription>Map each Excel header to an attribute code.</p>
+            <p hlmCardDescription>
+              Map each Excel header to an attribute. Choose transforms that should run on every cell
+              in that column.
+            </p>
           </div>
           <div hlmCardContent>
-            <form class="grid gap-3" (submit)="onCreate($event)">
-              <label class="grid gap-1 text-sm">
+            <form class="grid gap-4" (submit)="onCreate($event)">
+              <label class="grid max-w-md gap-1 text-sm">
                 Name
                 <input hlmInput name="name" required placeholder="Hospital intake v1" />
               </label>
-              @for (row of bindings(); track $index) {
-                <div class="grid gap-2 md:grid-cols-2">
-                  <input
-                    hlmInput
-                    [value]="row.excelHeader"
-                    (input)="updateBinding($index, 'excelHeader', $event)"
-                    placeholder="Excel header"
-                  />
-                  <select
-                    hlmInput
-                    [value]="row.attributeCode"
-                    (change)="updateBinding($index, 'attributeCode', $event)"
-                  >
-                    <option value="">Attribute</option>
-                    @for (attr of store.attributes(); track attr.code) {
-                      <option [value]="attr.code">{{ attr.label }} ({{ attr.code }})</option>
-                    }
-                  </select>
-                </div>
-              }
-              <div class="flex flex-wrap gap-2">
-                <button hlmBtn variant="outline" type="button" (click)="addBinding()">Add column</button>
-                <button hlmBtn type="submit" [disabled]="store.saving()">
-                  {{ store.saving() ? 'Saving…' : 'Create mapping' }}
-                </button>
-              </div>
+              <ccdr-mapping-bindings
+                [bindings]="bindings()"
+                [attributes]="store.attributes()"
+                (bindingsChange)="bindings.set($event)"
+              />
+              <button hlmBtn class="w-fit" type="submit" [disabled]="store.saving()">
+                {{ store.saving() ? 'Saving…' : 'Create mapping' }}
+              </button>
             </form>
           </div>
         </section>
@@ -136,7 +142,7 @@ export class MappingsPage {
   private readonly router = inject(Router);
   protected readonly auth = inject(AuthStore);
   protected readonly store = inject(MappingsStore);
-  protected readonly bindings = signal([{ excelHeader: '', attributeCode: '' }]);
+  protected readonly bindings = signal<MappingBindingDraft[]>([emptyBindingDraft()]);
 
   constructor() {
     effect(() => {
@@ -155,33 +161,39 @@ export class MappingsPage {
     void this.store.activate(id);
   }
 
-  protected addBinding() {
-    this.bindings.update((rows) => [...rows, { excelHeader: '', attributeCode: '' }]);
-  }
-
-  protected updateBinding(index: number, key: 'excelHeader' | 'attributeCode', event: Event) {
-    const value = (event.target as HTMLInputElement | HTMLSelectElement).value;
-    this.bindings.update((rows) =>
-      rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
-    );
+  protected async copy(event: Event, id: string) {
+    event.stopPropagation();
+    const copied = await this.store.clone(id);
+    if (copied) {
+      void this.router.navigate(['/app/mappings', copied.id]);
+    }
   }
 
   protected onCreate(event: Event) {
     event.preventDefault();
     const form = event.target as HTMLFormElement;
     const name = String(new FormData(form).get('name') ?? '').trim();
-    const bindings = this.bindings().filter((row) => row.excelHeader && row.attributeCode);
+    const bindings = this.bindings()
+      .filter((row) => row.excelHeader.trim() && row.attributeCode)
+      .map((row) => ({
+        excelHeader: row.excelHeader.trim(),
+        attributeCode: row.attributeCode,
+        transforms: row.transforms,
+        dateFormat: row.dateFormat.trim() || null,
+      }));
     void this.store
       .create({
         name,
         headerRowIndex: 1,
         ignoreUnmappedColumns: true,
         isDefault: false,
-        bindings: bindings.map((row) => ({ ...row, transforms: [] })),
+        bindings,
       })
-      .then(() => {
-        form.reset();
-        this.bindings.set([{ excelHeader: '', attributeCode: '' }]);
+      .then((ok) => {
+        if (ok) {
+          form.reset();
+          this.bindings.set([emptyBindingDraft()]);
+        }
       });
   }
 }

@@ -141,6 +141,27 @@ export interface CustomerListResponse {
   customers: Customer[];
 }
 
+export const CELL_TRANSFORMS = ['Trim', 'Upper', 'Lower', 'DigitsOnly'] as const;
+export type CellTransform = (typeof CELL_TRANSFORMS)[number];
+
+export const CELL_TRANSFORM_OPTIONS: { value: CellTransform; label: string; hint: string }[] = [
+  { value: 'Trim', label: 'Trim', hint: 'Strip leading and trailing spaces' },
+  { value: 'Upper', label: 'Uppercase', hint: 'Force A–Z' },
+  { value: 'Lower', label: 'Lowercase', hint: 'Force a–z' },
+  { value: 'DigitsOnly', label: 'Digits only', hint: 'Keep 0–9' },
+];
+
+export interface MappingBindingDraft {
+  excelHeader: string;
+  attributeCode: string;
+  transforms: string[];
+  dateFormat: string;
+}
+
+export function emptyBindingDraft(): MappingBindingDraft {
+  return { excelHeader: '', attributeCode: '', transforms: [], dateFormat: '' };
+}
+
 export interface MappingBinding {
   excelHeader: string;
   attributeCode: string;

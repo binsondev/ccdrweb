@@ -1,6 +1,6 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmBadge } from '@spartan-ng/helm/badge';
@@ -9,11 +9,22 @@ import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
 import { MappingsStore } from '../core/mappings.store';
+import { emptyBindingDraft, MappingBindingDraft } from '../core/models';
+import { MappingBindingsEditor } from '../shared/mapping-bindings';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-mapping-overview',
-  imports: [RouterLink, HlmBadge, HlmButton, StatusBanner, ...HlmAlertImports, ...HlmCardImports, ...HlmTableImports],
+  imports: [
+    RouterLink,
+    HlmBadge,
+    HlmButton,
+    StatusBanner,
+    MappingBindingsEditor,
+    ...HlmAlertImports,
+    ...HlmCardImports,
+    ...HlmTableImports,
+  ],
   template: `
     <div class="grid gap-6">
       <div class="flex flex-wrap items-center gap-3">
@@ -29,8 +40,20 @@ import { StatusBanner } from '../shared/status-banner';
           >
             {{ store.downloading() ? 'Downloading…' : 'Download empty Excel' }}
           </button>
-          @if (auth.canCatalogWrite() && !profile.current.activated) {
-            <button hlmBtn size="sm" type="button" (click)="store.activate(profile.id)">Activate version</button>
+          @if (auth.canCatalogWrite()) {
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              type="button"
+              [disabled]="store.saving()"
+              (click)="copy(profile.id)"
+            >
+              Copy as new mapping
+            </button>
+            @if (!profile.current.activated) {
+              <button hlmBtn size="sm" type="button" (click)="store.activate(profile.id)">Activate version</button>
+            }
           }
         }
       </div>
@@ -101,14 +124,38 @@ import { StatusBanner } from '../shared/status-banner';
           <div hlmCardHeader class="border-border border-b">
             <h2 hlmCardTitle>Column bindings</h2>
             <p hlmCardDescription>
-              {{ profile()!.current.bindings.length }} Excel headers mapped to catalog codes.
-              Download an empty workbook with these headers to fill and upload.
+              @if (auth.canCatalogWrite()) {
+                Add columns or change transforms. Saving an activated mapping creates a new draft
+                version.
+              } @else {
+                {{ profile()!.current.bindings.length }} Excel headers mapped to catalog codes.
+                Download an empty workbook with these headers to fill and upload.
+              }
             </p>
           </div>
-          <div hlmCardContent class="p-0">
-            @if (!profile()!.current.bindings.length) {
-              <p class="text-muted-foreground px-4 py-6 text-sm">This version has no column bindings yet.</p>
-            } @else {
+          @if (auth.canCatalogWrite()) {
+            <div hlmCardContent class="grid gap-4 py-4">
+              <ccdr-mapping-bindings
+                [bindings]="drafts()"
+                [attributes]="store.attributes()"
+                (bindingsChange)="drafts.set($event)"
+              />
+              <button
+                hlmBtn
+                class="w-fit"
+                type="button"
+                [disabled]="store.saving()"
+                (click)="save()"
+              >
+                {{ saveLabel() }}
+              </button>
+            </div>
+          } @else if (!profile()!.current.bindings.length) {
+            <div hlmCardContent>
+              <p class="text-muted-foreground py-2 text-sm">This version has no column bindings yet.</p>
+            </div>
+          } @else {
+            <div hlmCardContent class="p-0">
               <div hlmTableContainer>
                 <table hlmTable>
                   <thead hlmTHead>
@@ -142,8 +189,8 @@ import { StatusBanner } from '../shared/status-banner';
                   </tbody>
                 </table>
               </div>
-            }
-          </div>
+            </div>
+          }
         </section>
 
         @if (store.versions().length) {
@@ -196,8 +243,10 @@ import { StatusBanner } from '../shared/status-banner';
 })
 export class MappingOverviewPage {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   protected readonly auth = inject(AuthStore);
   protected readonly store = inject(MappingsStore);
+  protected readonly drafts = signal<MappingBindingDraft[]>([]);
 
   private readonly id = toSignal(
     this.route.paramMap.pipe(map((params) => params.get('id'))),
@@ -205,6 +254,10 @@ export class MappingOverviewPage {
   );
 
   protected readonly profile = computed(() => this.store.detail());
+  protected readonly saveLabel = computed(() => {
+    if (this.store.saving()) return 'Saving…';
+    return this.profile()?.current.immutable ? 'Save as new version' : 'Save bindings';
+  });
 
   constructor() {
     effect(() => {
@@ -213,9 +266,37 @@ export class MappingOverviewPage {
         void this.store.loadDetail(id);
       }
     });
+    effect(() => {
+      const profile = this.profile();
+      if (!profile) {
+        this.drafts.set([]);
+        return;
+      }
+      const rows = profile.current.bindings.map(
+        (bind): MappingBindingDraft => ({
+          excelHeader: bind.excelHeader,
+          attributeCode: bind.attributeCode,
+          transforms: [...bind.transforms],
+          dateFormat: bind.dateFormat ?? '',
+        }),
+      );
+      this.drafts.set(rows.length ? rows : [emptyBindingDraft()]);
+    });
   }
 
   protected attributeLabel(code: string) {
     return this.store.attributes().find((attr) => attr.code === code)?.label ?? code;
+  }
+
+  protected save() {
+    const id = this.id();
+    if (id) void this.store.saveBindings(id, this.drafts());
+  }
+
+  protected async copy(id: string) {
+    const copied = await this.store.clone(id);
+    if (copied) {
+      void this.router.navigate(['/app/mappings', copied.id]);
+    }
   }
 }

@@ -132,13 +132,42 @@ export class Api {
     headerRowIndex: number;
     ignoreUnmappedColumns: boolean;
     isDefault: boolean;
-    bindings: { excelHeader: string; attributeCode: string; transforms: string[] }[];
+    bindings: {
+      excelHeader: string;
+      attributeCode: string;
+      transforms: string[];
+      dateFormat?: string | null;
+    }[];
   }) {
     return this.post<MappingProfile>('/api/mapping-profiles', body);
   }
 
+  updateMappingProfile(
+    id: string,
+    body: {
+      name: string;
+      description?: string | null;
+      sheetName?: string | null;
+      headerRowIndex: number;
+      ignoreUnmappedColumns: boolean;
+      isDefault: boolean;
+      bindings: {
+        excelHeader: string;
+        attributeCode: string;
+        transforms: string[];
+        dateFormat?: string | null;
+      }[];
+    },
+  ) {
+    return this.put<MappingProfile>(`/api/mapping-profiles/${id}`, { id, ...body });
+  }
+
   activateMapping(id: string) {
     return this.post<MappingProfile>(`/api/mapping-profiles/${id}/activate`, {});
+  }
+
+  cloneMapping(id: string, name?: string) {
+    return this.post<MappingProfile>(`/api/mapping-profiles/${id}/clone`, name ? { name } : {});
   }
 
   async downloadMappingTemplate(id: string) {
