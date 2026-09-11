@@ -1,55 +1,79 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { HlmBadge } from '@spartan-ng/helm/badge';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { filter, map, startWith } from 'rxjs';
 import { protoNav } from './mock';
+import { PrototypeThemeStore } from './theme';
 
 @Component({
   selector: 'ccdr-proto-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmBadge, HlmButton, HlmSeparator],
   template: `
-    <div class="ccdr-proto min-h-dvh md:grid md:grid-cols-[17.5rem_1fr]">
-      <div class="proto-banner md:col-span-2">
-        <span>UI prototype · mock Acme Health · not wired to the API</span>
-        <a routerLink="/login">Open live app</a>
+    <div
+      class="ccdr-proto bg-background text-foreground min-h-dvh md:grid md:grid-cols-[15.5rem_minmax(0,1fr)]"
+      [class.dark]="theme.dark()"
+    >
+      <div
+        class="bg-primary text-primary-foreground col-span-full flex flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-[11px] font-medium tracking-wide"
+      >
+        <span>Enterprise prototype · mock Acme Health · theme tokens from Spartan</span>
+        <a routerLink="/login" class="underline underline-offset-2">Live API app</a>
       </div>
 
-      <header class="flex items-center justify-between border-b border-[color:var(--proto-rule)] px-4 py-3 md:hidden">
-        <p class="font-serif text-lg">CCDR</p>
-        <button type="button" class="proto-ghost-btn" (click)="menuOpen.set(!menuOpen())">
+      <header class="border-border flex items-center justify-between border-b px-4 py-3 md:hidden">
+        <p class="text-sm font-semibold tracking-tight">CCDR</p>
+        <button hlmBtn variant="outline" size="sm" type="button" (click)="menuOpen.set(!menuOpen())">
           {{ menuOpen() ? 'Close' : 'Menu' }}
         </button>
       </header>
 
-      <aside class="proto-rail md:flex" [class.hidden]="!menuOpen()">
-        <a routerLink="/prototype/customers" class="proto-brand" (click)="menuOpen.set(false)">
-          <span class="proto-mark" aria-hidden="true">C</span>
+      <aside
+        class="bg-sidebar text-sidebar-foreground border-sidebar-border flex flex-col border-b p-4 md:flex md:sticky md:top-0 md:h-dvh md:overflow-y-auto md:border-r md:border-b-0"
+        [class.hidden]="!menuOpen()"
+      >
+        <a
+          routerLink="/prototype/search"
+          class="flex items-center gap-3 text-inherit no-underline"
+          (click)="menuOpen.set(false)"
+        >
+          <span
+            class="bg-sidebar-primary text-sidebar-primary-foreground grid size-8 place-items-center rounded-md text-[11px] font-semibold"
+          >
+            CC
+          </span>
           <span>
-            <span class="block font-serif text-[1.35rem] leading-none tracking-tight">CCDR</span>
-            <span class="text-[11px] tracking-[0.14em] text-white/45 uppercase">Registry</span>
+            <span class="block text-sm font-semibold tracking-tight">CCDR</span>
+            <span class="text-sidebar-foreground/50 text-[10px] tracking-[0.18em] uppercase">
+              Customer master
+            </span>
           </span>
         </a>
 
-        <div class="proto-tenant">
-          <p class="text-[11px] tracking-[0.16em] text-white/40 uppercase">Workspace</p>
-          <p class="mt-1 font-medium text-white">Acme Health</p>
-          <p class="text-[12px] text-white/55">Hospital · acme</p>
+        <div class="border-sidebar-border bg-sidebar-accent/50 mt-5 rounded-md border px-3 py-2.5">
+          <p class="text-sidebar-foreground/45 text-[10px] tracking-[0.16em] uppercase">Workspace</p>
+          <p class="mt-0.5 text-sm font-medium">Acme Health</p>
+          <p class="text-sidebar-foreground/55 text-xs">Hospital · acme</p>
         </div>
 
-        <nav class="mt-6 grid gap-5" aria-label="Prototype">
+        <nav class="mt-5 grid gap-4 text-sm" aria-label="Prototype">
           @for (group of nav; track group.label) {
             <div>
-              <p class="mb-1 px-2 text-[10px] tracking-[0.18em] text-white/35 uppercase">{{ group.label }}</p>
+              <p class="text-sidebar-foreground/40 mb-1 px-2 text-[10px] tracking-[0.18em] uppercase">
+                {{ group.label }}
+              </p>
               <div class="grid gap-0.5">
                 @for (item of group.items; track item.path) {
                   <a
                     [routerLink]="item.path"
-                    routerLinkActive="proto-nav-active"
-                    class="proto-nav-item"
+                    routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground"
+                    class="hover:bg-sidebar-accent/70 rounded-md px-2.5 py-1.5"
                     (click)="menuOpen.set(false)"
                   >
-                    <span>{{ item.label }}</span>
-                    <span class="text-[11px] text-white/40">{{ item.hint }}</span>
+                    <span class="block leading-tight">{{ item.label }}</span>
+                    <span class="text-sidebar-foreground/45 text-[11px]">{{ item.hint }}</span>
                   </a>
                 }
               </div>
@@ -57,23 +81,28 @@ import { protoNav } from './mock';
           }
         </nav>
 
-        <div class="mt-auto border-t border-white/10 pt-4">
-          <p class="text-[13px] text-white/80">Maya Iyer</p>
-          <p class="text-[11px] text-white/40">Tenant admin · acme.admin@local</p>
+        <div class="mt-auto pt-6">
+          <hlm-separator class="bg-sidebar-border mb-4" />
+          <p class="text-sm font-medium">Maya Iyer</p>
+          <p class="text-sidebar-foreground/50 text-xs">Tenant admin · acme.admin@local</p>
+          <button hlmBtn variant="secondary" size="sm" class="mt-3 w-full" type="button" (click)="theme.toggle()">
+            {{ theme.label() }} theme
+          </button>
         </div>
       </aside>
 
-      <main class="min-w-0 bg-[color:var(--proto-paper)]">
-        <header class="proto-pagehead">
+      <main class="bg-background min-w-0">
+        <header class="border-border flex flex-wrap items-end justify-between gap-4 border-b px-4 py-5 md:px-8">
           <div>
-            <p class="proto-kicker">{{ kicker() }}</p>
-            <h1>{{ title() }}</h1>
+            <p class="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+              {{ kicker() }}
+            </p>
+            <h1 class="text-2xl font-semibold tracking-tight">{{ title() }}</h1>
+            <p class="text-muted-foreground mt-1 max-w-2xl text-sm">{{ blurb() }}</p>
           </div>
-          <p class="max-w-md text-right text-[13px] text-[color:var(--proto-muted)] max-md:hidden">
-            {{ blurb() }}
-          </p>
+          <span hlmBadge variant="outline">{{ envLabel() }}</span>
         </header>
-        <div class="px-4 pb-10 md:px-8">
+        <div class="px-4 py-6 md:px-8">
           <router-outlet />
         </div>
       </main>
@@ -82,6 +111,7 @@ import { protoNav } from './mock';
 })
 export class PrototypeShell {
   private readonly router = inject(Router);
+  protected readonly theme = inject(PrototypeThemeStore);
   protected readonly nav = protoNav;
   protected readonly menuOpen = signal(false);
 
@@ -97,21 +127,22 @@ export class PrototypeShell {
   protected readonly title = computed(() => this.meta().title);
   protected readonly kicker = computed(() => this.meta().kicker);
   protected readonly blurb = computed(() => this.meta().blurb);
+  protected readonly envLabel = computed(() => (this.theme.dark() ? 'Dark · Acme' : 'Light · Acme'));
 
   private meta() {
     const url = this.url();
     if (url.includes('search')) {
       return {
         kicker: 'Records',
-        title: 'Faceted search',
-        blurb: 'Dynamic filters from filterable attributes — same contract as the list API.',
+        title: 'Customer search',
+        blurb: 'Filters are generated from GET /api/customers/filterable-attributes.',
       };
     }
     if (url.includes('attributes')) {
       return {
         kicker: 'Catalog',
         title: 'Attributes',
-        blurb: 'The tenant has no Customer class. These fields are the record.',
+        blurb: 'There is no fixed Customer class. These fields are the record.',
       };
     }
     if (url.includes('intake')) {
@@ -145,7 +176,7 @@ export class PrototypeShell {
     return {
       kicker: 'Records',
       title: 'Customers',
-      blurb: 'Search any value, or filter on attributes marked filterable.',
+      blurb: 'Search any value, or open faceted search for catalog-driven filters.',
     };
   }
 }

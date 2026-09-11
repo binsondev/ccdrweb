@@ -1,15 +1,22 @@
 import { Component } from '@angular/core';
+import { HlmBadge } from '@spartan-ng/helm/badge';
+import { HlmCardImports } from '@spartan-ng/helm/card';
 
 @Component({
   selector: 'ccdr-proto-tenants',
+  imports: [HlmBadge, ...HlmCardImports],
   template: `
     <div class="grid gap-4 md:grid-cols-3">
       @for (tenant of tenants; track tenant.slug) {
-        <article class="proto-panel">
-          <p class="proto-kicker">{{ tenant.type }}</p>
-          <h2 class="font-serif text-2xl">{{ tenant.name }}</h2>
-          <p class="font-mono text-xs text-[color:var(--proto-muted)]">{{ tenant.slug }}</p>
-          <p class="mt-4 text-[13px] text-[color:var(--proto-muted)]">{{ tenant.note }}</p>
+        <article hlmCard>
+          <div hlmCardHeader>
+            <span hlmBadge variant="outline">{{ tenant.type }}</span>
+            <h2 hlmCardTitle>{{ tenant.name }}</h2>
+            <p hlmCardDescription class="font-mono">{{ tenant.slug }}</p>
+          </div>
+          <div hlmCardContent>
+            <p class="text-muted-foreground text-sm">{{ tenant.note }}</p>
+          </div>
         </article>
       }
     </div>

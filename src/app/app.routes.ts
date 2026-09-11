@@ -12,6 +12,10 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'customers' },
       {
+        path: 'customers',
+        loadComponent: () => import('./prototype/customers').then((m) => m.PrototypeCustomers),
+      },
+      {
         path: 'search',
         loadComponent: () => import('./prototype/search').then((m) => m.PrototypeSearch),
       },

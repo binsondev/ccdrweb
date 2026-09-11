@@ -1,4 +1,12 @@
 import { Component, computed, signal } from '@angular/core';
+import { HlmBadge } from '@spartan-ng/helm/badge';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { HlmSeparator } from '@spartan-ng/helm/separator';
+import { HlmTableImports } from '@spartan-ng/helm/table';
 import {
   protoFilterable,
   protoSearchRows,
@@ -10,147 +18,204 @@ type TextDraft = { op: string; value: string };
 
 @Component({
   selector: 'ccdr-proto-search',
+  imports: [
+    HlmBadge,
+    HlmButton,
+    HlmCheckbox,
+    HlmInput,
+    HlmLabel,
+    HlmSeparator,
+    ...HlmCardImports,
+    ...HlmTableImports,
+  ],
   template: `
-    <div class="proto-shop">
-      <button type="button" class="proto-ghost-btn proto-filters-toggle" (click)="panelOpen.set(!panelOpen())">
+    <div class="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
+      <button
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="w-fit lg:hidden"
+        type="button"
+        (click)="panelOpen.set(!panelOpen())"
+      >
         {{ panelOpen() ? 'Hide filters' : 'Show filters' }}
       </button>
 
-      <aside class="proto-facets" [class.proto-facets-open]="panelOpen()">
-        <div class="flex items-center justify-between gap-2">
-          <p class="proto-kicker" style="margin: 0">Filters</p>
-          @if (chips().length) {
-            <button type="button" class="proto-ghost-btn" (click)="clearAll()">Clear all</button>
-          }
-        </div>
-        <p class="mt-1 mb-4 text-[12px] leading-relaxed text-[color:var(--proto-muted)]">
-          Built from <code class="font-mono">GET /api/customers/filterable-attributes</code>.
-          Only active, filterable catalog fields appear.
-        </p>
-
-        @for (group of groups; track group) {
-          <section class="proto-facet">
-            <h2>{{ group }}</h2>
-            @for (attr of inGroup(group); track attr.code) {
-              <div class="proto-facet-field">
-                <p class="proto-facet-label">{{ attr.label }}</p>
-                @switch (attr.dataType) {
-                  @case ('Dropdown') {
-                    <ul class="proto-option-list">
-                      @for (opt of attr.options; track opt.value) {
-                        <li>
-                          <label>
-                            <input
-                              type="checkbox"
-                              [checked]="selectedOptions(attr.code).includes(opt.value)"
-                              (change)="toggleOption(attr.code, opt.value)"
-                            />
-                            {{ opt.label }}
-                          </label>
-                        </li>
-                      }
-                    </ul>
-                  }
-                  @case ('Boolean') {
-                    <div class="proto-bool">
-                      @for (choice of boolChoices; track choice.value) {
-                        <label>
-                          <input
-                            type="radio"
-                            [name]="'bool-' + attr.code"
-                            [checked]="boolValue(attr.code) === choice.value"
-                            (change)="setBool(attr.code, choice.value)"
-                          />
-                          {{ choice.label }}
-                        </label>
-                      }
-                    </div>
-                  }
-                  @case ('Integer') {
-                    <div class="proto-range">
-                      <input
-                        type="number"
-                        [value]="minValue(attr.code)"
-                        (input)="setMin(attr.code, $event)"
-                        placeholder="Min"
-                      />
-                      <span>to</span>
-                      <input
-                        type="number"
-                        [value]="maxValue(attr.code)"
-                        (input)="setMax(attr.code, $event)"
-                        placeholder="Max"
-                      />
-                    </div>
-                  }
-                  @case ('Decimal') {
-                    <div class="proto-range">
-                      <input
-                        type="number"
-                        step="0.01"
-                        [value]="minValue(attr.code)"
-                        (input)="setMin(attr.code, $event)"
-                        placeholder="Min"
-                      />
-                      <span>to</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        [value]="maxValue(attr.code)"
-                        (input)="setMax(attr.code, $event)"
-                        placeholder="Max"
-                      />
-                    </div>
-                  }
-                  @case ('Date') {
-                    <div class="proto-range proto-range-dates">
-                      <input type="date" [value]="minValue(attr.code)" (input)="setMin(attr.code, $event)" />
-                      <input type="date" [value]="maxValue(attr.code)" (input)="setMax(attr.code, $event)" />
-                    </div>
-                  }
-                  @case ('DateTime') {
-                    <div class="proto-range proto-range-dates">
-                      <input type="datetime-local" [value]="minValue(attr.code)" (input)="setMin(attr.code, $event)" />
-                      <input type="datetime-local" [value]="maxValue(attr.code)" (input)="setMax(attr.code, $event)" />
-                    </div>
-                  }
-                  @default {
-                    <div class="proto-text-filter">
-                      <select [value]="textDraft(attr).op" (change)="setTextOp(attr.code, $event)">
-                        @for (op of attr.operators; track op) {
-                          <option [value]="op">{{ opLabel(op) }}</option>
+      <aside class="lg:sticky lg:top-4 lg:block" [class.hidden]="!panelOpen()">
+        <section hlmCard size="sm">
+          <div hlmCardHeader class="border-border border-b">
+            <div class="flex items-center justify-between gap-2">
+              <h2 hlmCardTitle>Filters</h2>
+              @if (chips().length) {
+                <button hlmBtn variant="ghost" size="xs" type="button" (click)="clearAll()">
+                  Clear all
+                </button>
+              }
+            </div>
+            <p hlmCardDescription>
+              Built from GET /api/customers/filterable-attributes. Only active, filterable catalog
+              fields appear.
+            </p>
+          </div>
+          <div hlmCardContent class="grid gap-5 py-4">
+            @for (group of groups; track group) {
+              <section>
+                <h3 class="text-muted-foreground mb-3 text-[10px] font-semibold tracking-[0.16em] uppercase">
+                  {{ group }}
+                </h3>
+                <div class="grid gap-4">
+                  @for (attr of inGroup(group); track attr.code) {
+                    <div>
+                      <p class="mb-2 text-xs font-medium">{{ attr.label }}</p>
+                      @switch (attr.dataType) {
+                        @case ('Dropdown') {
+                          <ul class="grid gap-2">
+                            @for (opt of attr.options; track opt.value) {
+                              <li>
+                                <label hlmLabel class="font-normal">
+                                  <hlm-checkbox
+                                    [checked]="selectedOptions(attr.code).includes(opt.value)"
+                                    (checkedChange)="onOption(attr.code, opt.value, $event)"
+                                  />
+                                  {{ opt.label }}
+                                </label>
+                              </li>
+                            }
+                          </ul>
                         }
-                      </select>
-                      <input
-                        type="search"
-                        [value]="textDraft(attr).value"
-                        (input)="setTextValue(attr.code, attr.operators[0], $event)"
-                        [placeholder]="attr.label"
-                      />
+                        @case ('Boolean') {
+                          <div class="flex flex-wrap gap-1">
+                            @for (choice of boolChoices; track choice.value) {
+                              <button
+                                hlmBtn
+                                size="xs"
+                                type="button"
+                                [variant]="boolValue(attr.code) === choice.value ? 'default' : 'outline'"
+                                (click)="setBool(attr.code, choice.value)"
+                              >
+                                {{ choice.label }}
+                              </button>
+                            }
+                          </div>
+                        }
+                        @case ('Integer') {
+                          <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                            <input
+                              hlmInput
+                              type="number"
+                              [value]="minValue(attr.code)"
+                              (input)="setMin(attr.code, $event)"
+                              placeholder="Min"
+                            />
+                            <span class="text-muted-foreground text-xs">to</span>
+                            <input
+                              hlmInput
+                              type="number"
+                              [value]="maxValue(attr.code)"
+                              (input)="setMax(attr.code, $event)"
+                              placeholder="Max"
+                            />
+                          </div>
+                        }
+                        @case ('Decimal') {
+                          <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                            <input
+                              hlmInput
+                              type="number"
+                              step="0.01"
+                              [value]="minValue(attr.code)"
+                              (input)="setMin(attr.code, $event)"
+                              placeholder="Min"
+                            />
+                            <span class="text-muted-foreground text-xs">to</span>
+                            <input
+                              hlmInput
+                              type="number"
+                              step="0.01"
+                              [value]="maxValue(attr.code)"
+                              (input)="setMax(attr.code, $event)"
+                              placeholder="Max"
+                            />
+                          </div>
+                        }
+                        @case ('Date') {
+                          <div class="grid grid-cols-2 gap-2">
+                            <input
+                              hlmInput
+                              type="date"
+                              [value]="minValue(attr.code)"
+                              (input)="setMin(attr.code, $event)"
+                            />
+                            <input
+                              hlmInput
+                              type="date"
+                              [value]="maxValue(attr.code)"
+                              (input)="setMax(attr.code, $event)"
+                            />
+                          </div>
+                        }
+                        @case ('DateTime') {
+                          <div class="grid grid-cols-1 gap-2">
+                            <input
+                              hlmInput
+                              type="datetime-local"
+                              [value]="minValue(attr.code)"
+                              (input)="setMin(attr.code, $event)"
+                            />
+                            <input
+                              hlmInput
+                              type="datetime-local"
+                              [value]="maxValue(attr.code)"
+                              (input)="setMax(attr.code, $event)"
+                            />
+                          </div>
+                        }
+                        @default {
+                          <div class="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2">
+                            <select
+                              hlmInput
+                              [value]="textDraft(attr).op"
+                              (change)="setTextOp(attr.code, $event)"
+                            >
+                              @for (op of attr.operators; track op) {
+                                <option [value]="op">{{ opLabel(op) }}</option>
+                              }
+                            </select>
+                            <input
+                              hlmInput
+                              type="search"
+                              [value]="textDraft(attr).value"
+                              (input)="setTextValue(attr.code, attr.operators[0], $event)"
+                              [placeholder]="attr.label"
+                            />
+                          </div>
+                        }
+                      }
                     </div>
                   }
-                }
-              </div>
+                </div>
+              </section>
+              @if (!$last) {
+                <hlm-separator />
+              }
             }
-          </section>
-        }
+          </div>
+        </section>
       </aside>
 
-      <section>
-        <label class="proto-search">
-          <span class="sr-only">Keyword search</span>
-          <input
-            type="search"
-            placeholder="Search any value across the bag…"
-            [value]="q()"
-            (input)="onQuery($event)"
-          />
-        </label>
+      <section class="grid min-w-0 gap-4">
+        <input
+          hlmInput
+          type="search"
+          placeholder="Search any value across the bag…"
+          [value]="q()"
+          (input)="onQuery($event)"
+        />
 
         @if (chips().length) {
-          <div class="proto-chip-row">
+          <div class="flex flex-wrap gap-1.5">
             @for (chip of chips(); track chip.id) {
-              <button type="button" class="proto-chip proto-chip-on" (click)="removeChip(chip)">
+              <button hlmBtn variant="secondary" size="xs" type="button" (click)="removeChip(chip)">
                 {{ chip.label }}
                 <span aria-hidden="true">×</span>
               </button>
@@ -158,42 +223,56 @@ type TextDraft = { op: string; value: string };
           </div>
         }
 
-        <p class="proto-result-meta">{{ rows().length }} of {{ catalog.length }} records</p>
-
-        <pre class="proto-query" tabindex="0">{{ queryPreview() }}</pre>
-
-        <div class="proto-table-wrap">
-          <table class="proto-table">
-            <thead>
-              <tr>
-                <th>MRN</th>
-                <th>Name</th>
-                <th>Ward</th>
-                <th>Age</th>
-                <th>Insured</th>
-                <th>Blood</th>
-              </tr>
-            </thead>
-            <tbody>
-              @if (!rows().length) {
-                <tr>
-                  <td colspan="6">No records match these filters. Clear a chip or widen the range.</td>
-                </tr>
-              } @else {
-                @for (row of rows(); track row.id) {
-                  <tr>
-                    <td class="font-mono text-[12px]">{{ row.attributes['mrn'] }}</td>
-                    <td class="font-medium">{{ row.attributes['full_name'] }}</td>
-                    <td>{{ row.attributes['ward'] }}</td>
-                    <td>{{ row.attributes['age'] }}</td>
-                    <td>{{ row.attributes['insured'] === 'true' ? 'Yes' : 'No' }}</td>
-                    <td>{{ row.attributes['blood_group'] }}</td>
-                  </tr>
-                }
-              }
-            </tbody>
-          </table>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-muted-foreground text-[11px] font-medium tracking-[0.14em] uppercase">
+            {{ rows().length }} of {{ catalog.length }} records
+          </p>
+          <span hlmBadge variant="outline">AND across filters</span>
         </div>
+
+        <pre
+          class="bg-muted text-muted-foreground overflow-x-auto rounded-md border border-dashed p-3 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap"
+          tabindex="0"
+        >{{ queryPreview() }}</pre>
+
+        <section hlmCard>
+          <div hlmCardContent class="p-0">
+            <div hlmTableContainer>
+              <table hlmTable>
+                <thead hlmTHead>
+                  <tr hlmTr>
+                    <th hlmTh>MRN</th>
+                    <th hlmTh>Name</th>
+                    <th hlmTh>Ward</th>
+                    <th hlmTh>Age</th>
+                    <th hlmTh>Insured</th>
+                    <th hlmTh>Blood</th>
+                  </tr>
+                </thead>
+                <tbody hlmTBody>
+                  @if (!rows().length) {
+                    <tr hlmTr>
+                      <td hlmTd colspan="6" class="text-muted-foreground">
+                        No records match these filters. Clear a chip or widen the range.
+                      </td>
+                    </tr>
+                  } @else {
+                    @for (row of rows(); track row.id) {
+                      <tr hlmTr>
+                        <td hlmTd class="font-mono text-xs">{{ row.attributes['mrn'] }}</td>
+                        <td hlmTd class="font-medium">{{ row.attributes['full_name'] }}</td>
+                        <td hlmTd>{{ row.attributes['ward'] }}</td>
+                        <td hlmTd>{{ row.attributes['age'] }}</td>
+                        <td hlmTd>{{ row.attributes['insured'] === 'true' ? 'Yes' : 'No' }}</td>
+                        <td hlmTd>{{ row.attributes['blood_group'] }}</td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       </section>
     </div>
   `,
@@ -209,7 +288,7 @@ export class PrototypeSearch {
   ];
 
   protected readonly q = signal('');
-  protected readonly panelOpen = signal(false);
+  protected readonly panelOpen = signal(true);
   protected readonly text = signal<Record<string, TextDraft>>({});
   protected readonly options = signal<Record<string, string[]>>({});
   protected readonly min = signal<Record<string, string>>({});
@@ -355,6 +434,15 @@ export class PrototypeSearch {
     }));
   }
 
+  protected onOption(code: string, value: string, checked: boolean) {
+    this.options.update((current) => {
+      const next = new Set(current[code] ?? []);
+      if (checked) next.add(value);
+      else next.delete(value);
+      return { ...current, [code]: [...next] };
+    });
+  }
+
   protected toggleOption(code: string, value: string) {
     this.options.update((current) => {
       const next = new Set(current[code] ?? []);
@@ -378,7 +466,10 @@ export class PrototypeSearch {
 
   protected removeChip(chip: { kind: string; code: string; extra?: string }) {
     if (chip.kind === 'text') {
-      this.text.update((current) => ({ ...current, [chip.code]: { op: current[chip.code]?.op ?? 'contains', value: '' } }));
+      this.text.update((current) => ({
+        ...current,
+        [chip.code]: { op: current[chip.code]?.op ?? 'contains', value: '' },
+      }));
     }
     if (chip.kind === 'opt' && chip.extra) this.toggleOption(chip.code, chip.extra);
     if (chip.kind === 'min') this.min.update((current) => ({ ...current, [chip.code]: '' }));
