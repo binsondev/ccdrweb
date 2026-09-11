@@ -18,7 +18,7 @@ import { roleLabel } from '../core/format';
       </header>
 
       <aside
-        class="border-border bg-sidebar text-sidebar-foreground flex flex-col border-b p-4 md:min-h-dvh md:border-r md:border-b-0"
+        class="border-border bg-sidebar text-sidebar-foreground flex flex-col border-b p-4 md:flex md:min-h-dvh md:border-r md:border-b-0"
         [class.hidden]="!menuOpen()"
       >
         <div class="mb-6 hidden md:block">
