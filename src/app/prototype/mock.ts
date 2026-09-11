@@ -166,10 +166,267 @@ export const protoBindings: ProtoBinding[] = [
   { header: 'Unit', attribute: 'ward' },
 ];
 
+export type ProtoDataType =
+  | 'Text'
+  | 'Phone'
+  | 'Email'
+  | 'Integer'
+  | 'Decimal'
+  | 'Date'
+  | 'DateTime'
+  | 'Boolean'
+  | 'Dropdown';
+
+/** Same shape as GET /api/customers/filterable-attributes */
+export interface ProtoFilterable {
+  code: string;
+  label: string;
+  group: string | null;
+  dataType: ProtoDataType;
+  operators: string[];
+  options: { value: string; label: string }[];
+}
+
+export interface ProtoSearchRow {
+  id: string;
+  updated: string;
+  attributes: Record<string, string>;
+}
+
+export function operatorsFor(type: ProtoDataType): string[] {
+  switch (type) {
+    case 'Text':
+    case 'Phone':
+    case 'Email':
+      return ['contains', 'eq'];
+    case 'Integer':
+    case 'Decimal':
+    case 'Date':
+    case 'DateTime':
+      return ['eq', 'gt', 'gte', 'lt', 'lte'];
+    case 'Boolean':
+    case 'Dropdown':
+      return ['eq'];
+    default:
+      return ['eq'];
+  }
+}
+
+export const protoFilterable: ProtoFilterable[] = [
+  {
+    code: 'mrn',
+    label: 'Medical record no.',
+    group: 'Identity',
+    dataType: 'Text',
+    operators: operatorsFor('Text'),
+    options: [],
+  },
+  {
+    code: 'full_name',
+    label: 'Full name',
+    group: 'Identity',
+    dataType: 'Text',
+    operators: operatorsFor('Text'),
+    options: [],
+  },
+  {
+    code: 'dob',
+    label: 'Date of birth',
+    group: 'Identity',
+    dataType: 'Date',
+    operators: operatorsFor('Date'),
+    options: [],
+  },
+  {
+    code: 'age',
+    label: 'Age',
+    group: 'Identity',
+    dataType: 'Integer',
+    operators: operatorsFor('Integer'),
+    options: [],
+  },
+  {
+    code: 'phone',
+    label: 'Phone',
+    group: 'Contact',
+    dataType: 'Phone',
+    operators: operatorsFor('Phone'),
+    options: [],
+  },
+  {
+    code: 'ward',
+    label: 'Ward',
+    group: 'Stay',
+    dataType: 'Dropdown',
+    operators: operatorsFor('Dropdown'),
+    options: [
+      { value: 'Cardiology', label: 'Cardiology' },
+      { value: 'Oncology', label: 'Oncology' },
+      { value: 'Maternity', label: 'Maternity' },
+      { value: 'Orthopedics', label: 'Orthopedics' },
+    ],
+  },
+  {
+    code: 'insured',
+    label: 'Insured',
+    group: 'Stay',
+    dataType: 'Boolean',
+    operators: operatorsFor('Boolean'),
+    options: [],
+  },
+  {
+    code: 'admit_date',
+    label: 'Admit date',
+    group: 'Stay',
+    dataType: 'Date',
+    operators: operatorsFor('Date'),
+    options: [],
+  },
+  {
+    code: 'blood_group',
+    label: 'Blood group',
+    group: 'Clinical',
+    dataType: 'Dropdown',
+    operators: operatorsFor('Dropdown'),
+    options: [
+      { value: 'O+', label: 'O+' },
+      { value: 'A+', label: 'A+' },
+      { value: 'B+', label: 'B+' },
+      { value: 'AB+', label: 'AB+' },
+    ],
+  },
+];
+
+export const protoSearchRows: ProtoSearchRow[] = [
+  {
+    id: '1',
+    updated: 'Today, 14:08',
+    attributes: {
+      mrn: 'AH-10482',
+      full_name: 'Priya Menon',
+      phone: '9847011220',
+      ward: 'Cardiology',
+      dob: '1978-04-12',
+      age: '47',
+      insured: 'true',
+      admit_date: '2026-09-08',
+      blood_group: 'O+',
+    },
+  },
+  {
+    id: '2',
+    updated: 'Today, 11:41',
+    attributes: {
+      mrn: 'AH-10483',
+      full_name: 'Joseph Abraham',
+      phone: '9895044119',
+      ward: 'Oncology',
+      dob: '1964-11-02',
+      age: '61',
+      insured: 'true',
+      admit_date: '2026-09-04',
+      blood_group: 'A+',
+    },
+  },
+  {
+    id: '3',
+    updated: 'Yesterday',
+    attributes: {
+      mrn: 'AH-10501',
+      full_name: 'Aisha Rahman',
+      phone: '9746022881',
+      ward: 'Maternity',
+      dob: '1991-07-28',
+      age: '34',
+      insured: 'false',
+      admit_date: '2026-09-10',
+      blood_group: 'B+',
+    },
+  },
+  {
+    id: '4',
+    updated: 'Mon',
+    attributes: {
+      mrn: 'AH-10514',
+      full_name: 'Thomas Kurian',
+      phone: '9947033002',
+      ward: 'Orthopedics',
+      dob: '1956-01-19',
+      age: '70',
+      insured: 'true',
+      admit_date: '2026-08-29',
+      blood_group: 'O+',
+    },
+  },
+  {
+    id: '5',
+    updated: 'Mon',
+    attributes: {
+      mrn: 'AH-10522',
+      full_name: 'Lakshmi Nair',
+      phone: '9567011994',
+      ward: 'Cardiology',
+      dob: '1985-09-03',
+      age: '40',
+      insured: 'false',
+      admit_date: '2026-09-09',
+      blood_group: 'AB+',
+    },
+  },
+  {
+    id: '6',
+    updated: 'Sun',
+    attributes: {
+      mrn: 'AH-10540',
+      full_name: 'Farhan Iqbal',
+      phone: '9846011223',
+      ward: 'Oncology',
+      dob: '1988-02-14',
+      age: '38',
+      insured: 'true',
+      admit_date: '2026-09-02',
+      blood_group: 'B+',
+    },
+  },
+  {
+    id: '7',
+    updated: 'Sat',
+    attributes: {
+      mrn: 'AH-10555',
+      full_name: 'Meera Joseph',
+      phone: '9744018822',
+      ward: 'Maternity',
+      dob: '1996-12-01',
+      age: '29',
+      insured: 'true',
+      admit_date: '2026-09-11',
+      blood_group: 'A+',
+    },
+  },
+  {
+    id: '8',
+    updated: 'Fri',
+    attributes: {
+      mrn: 'AH-10561',
+      full_name: 'Suresh Pillai',
+      phone: '9895010033',
+      ward: 'Orthopedics',
+      dob: '1972-06-21',
+      age: '53',
+      insured: 'false',
+      admit_date: '2026-08-21',
+      blood_group: 'O+',
+    },
+  },
+];
+
 export const protoNav = [
   {
     label: 'Records',
-    items: [{ path: '/prototype/customers', label: 'Customers', hint: 'Search the bag' }],
+    items: [
+      { path: '/prototype/customers', label: 'Customers', hint: 'Search the bag' },
+      { path: '/prototype/search', label: 'Faceted search', hint: 'Filterable attributes' },
+    ],
   },
   {
     label: 'Catalog',

@@ -1,8 +1,10 @@
 import { Component, computed, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { protoCustomers, type ProtoCustomer } from './mock';
 
 @Component({
   selector: 'ccdr-proto-customers',
+  imports: [RouterLink],
   template: `
     <div class="proto-toolbar">
       <label class="proto-search">
@@ -26,6 +28,7 @@ import { protoCustomers, type ProtoCustomer } from './mock';
           </button>
         }
         <button type="button" class="proto-primary-btn" (click)="composing.set(true)">New record</button>
+        <a class="proto-ghost-btn" routerLink="/prototype/search">Faceted search</a>
       </div>
     </div>
 

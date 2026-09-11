@@ -100,6 +100,13 @@ export class PrototypeShell {
 
   private meta() {
     const url = this.url();
+    if (url.includes('search')) {
+      return {
+        kicker: 'Records',
+        title: 'Faceted search',
+        blurb: 'Dynamic filters from filterable attributes — same contract as the list API.',
+      };
+    }
     if (url.includes('attributes')) {
       return {
         kicker: 'Catalog',

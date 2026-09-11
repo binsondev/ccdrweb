@@ -39,9 +39,9 @@ import { RouterLink } from '@angular/router';
             <span class="proto-persona-role">Acme uploader</span>
             <span class="proto-persona-meta">Map workbooks and commit staged rows</span>
           </a>
-          <a routerLink="/prototype/customers" class="proto-persona">
+          <a routerLink="/prototype/search" class="proto-persona">
             <span class="proto-persona-role">Acme query</span>
-            <span class="proto-persona-meta">Search only — no writes</span>
+            <span class="proto-persona-meta">Faceted search from filterable attributes</span>
           </a>
           <a routerLink="/prototype/tenants" class="proto-persona proto-persona-platform">
             <span class="proto-persona-role">Platform</span>
