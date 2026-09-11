@@ -30,8 +30,7 @@ import { PrototypeThemeStore } from './theme';
             </h1>
             <p class="text-sidebar-foreground/70 mt-4 max-w-md text-sm leading-relaxed">
               Tenant Admin owns the attribute schema. Uploaders map Excel columns and commit batches.
-              Query users search only their tenant. Tokens are issued against a known email — no
-              password form.
+              Query users search only their tenant. Sign in with a known email — no password form.
             </p>
           </div>
           <ol class="grid gap-3 text-sm">
@@ -57,8 +56,7 @@ import { PrototypeThemeStore } from './theme';
             </p>
             <h2 class="mt-1 text-2xl font-semibold tracking-tight">Enter a workspace</h2>
             <p class="text-muted-foreground mt-2 mb-6 text-sm leading-relaxed">
-              Mock session only. The live app still calls
-              <code class="bg-muted rounded px-1.5 py-0.5 text-xs">POST /api/dev/token</code>.
+              Mock walkthrough — no sign-in. Open the live app to work with real records.
             </p>
 
             <div class="grid gap-2">
@@ -91,7 +89,7 @@ import { PrototypeThemeStore } from './theme';
             <hlm-separator class="my-6" />
             <p class="text-muted-foreground text-center text-xs">
               Or open the
-              <a routerLink="/login" class="text-foreground font-medium underline underline-offset-4">live API login</a>.
+              <a routerLink="/login" class="text-foreground font-medium underline underline-offset-4">live login</a>.
             </p>
           </div>
         </section>

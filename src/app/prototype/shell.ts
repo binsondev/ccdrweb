@@ -20,7 +20,7 @@ import { PrototypeThemeStore } from './theme';
         class="bg-primary text-primary-foreground col-span-full flex flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-[11px] font-medium tracking-wide"
       >
         <span>Enterprise prototype · mock Acme Health · theme tokens from Spartan</span>
-        <a routerLink="/login" class="underline underline-offset-2">Live API app</a>
+        <a routerLink="/login" class="underline underline-offset-2">Live app</a>
       </div>
 
       <header class="border-border flex items-center justify-between border-b px-4 py-3 md:hidden">
@@ -135,7 +135,7 @@ export class PrototypeShell {
       return {
         kicker: 'Records',
         title: 'Customer search',
-        blurb: 'Filters are generated from GET /api/customers/filterable-attributes.',
+        blurb: 'Search any value, or narrow the list with catalog filters.',
       };
     }
     if (url.includes('attributes')) {

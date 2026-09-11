@@ -4,87 +4,69 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
 import { MembersStore } from '../core/members.store';
 import { AppRole, MEMBER_ROLES } from '../core/models';
-import { roleLabel } from '../core/format';
+import { initials, roleLabel } from '../core/format';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-members',
-  imports: [FormField, HlmBadge, HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmTableImports],
+  imports: [FormField, HlmBadge, HlmButton, HlmInput, StatusBanner, ...HlmCardImports],
   template: `
     <div class="grid gap-6">
-      <header class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Members</h1>
-        <p class="text-muted-foreground text-sm">
-          Invite by email. The membership links when they sign in with your identity provider (or a
-          local development token).
-        </p>
-      </header>
-
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
-      <section hlmCard>
-        <div hlmCardContent>
-          @if (store.loading()) {
-            <p class="text-muted-foreground text-sm">Loading members…</p>
-          } @else if (!store.members().length) {
-            <p class="text-muted-foreground text-sm">No memberships in this tenant yet.</p>
-          } @else {
-            <div hlmTableContainer>
-              <table hlmTable>
-                <thead hlmTHead>
-                  <tr hlmTr>
-                    <th hlmTh>Email</th>
-                    <th hlmTh>Role</th>
-                    <th hlmTh>Status</th>
-                    <th hlmTh></th>
-                  </tr>
-                </thead>
-                <tbody hlmTBody>
-                  @for (member of store.members(); track member.id) {
-                    <tr hlmTr>
-                      <td hlmTd>{{ member.email }}</td>
-                      <td hlmTd>
-                        <select
-                          hlmInput
-                          [value]="member.role"
-                          (change)="onRole(member.id, $event, member.exportGranted)"
-                        >
-                          @for (role of roles; track role) {
-                            <option [value]="role">{{ roleLabel(role) }}</option>
-                          }
-                        </select>
-                      </td>
-                      <td hlmTd>
-                        @if (member.pendingLogin) {
-                          <span hlmBadge variant="outline">Pending first login</span>
-                        } @else {
-                          <span hlmBadge variant="secondary">Linked</span>
-                        }
-                      </td>
-                      <td hlmTd>
-                        <button hlmBtn variant="ghost" size="sm" type="button" (click)="store.remove(member.id)">
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
+      @if (store.loading()) {
+        <p class="text-muted-foreground text-sm">Loading members…</p>
+      } @else if (!store.members().length) {
+        <p class="text-muted-foreground text-sm">No memberships in this tenant yet.</p>
+      } @else {
+        <ul class="grid gap-3">
+          @for (member of store.members(); track member.id) {
+            <li hlmCard size="sm">
+              <div hlmCardContent class="flex flex-wrap items-center gap-3 py-4">
+                <span
+                  class="bg-primary text-primary-foreground grid size-9 place-items-center rounded-md text-xs font-semibold"
+                  aria-hidden="true"
+                >
+                  {{ initials(member.name, member.email) }}
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium">{{ member.name || member.email }}</p>
+                  <p class="text-muted-foreground truncate text-sm">{{ member.email }}</p>
+                </div>
+                <select
+                  hlmInput
+                  class="w-40"
+                  [value]="member.role"
+                  (change)="onRole(member.id, $event, member.exportGranted)"
+                >
+                  @for (role of roles; track role) {
+                    <option [value]="role">{{ roleLabel(role) }}</option>
                   }
-                </tbody>
-              </table>
-            </div>
+                </select>
+                @if (member.pendingLogin) {
+                  <span hlmBadge variant="secondary">Pending login</span>
+                } @else {
+                  <span hlmBadge>Linked</span>
+                }
+                <button hlmBtn variant="ghost" size="sm" type="button" (click)="store.remove(member.id)">
+                  Remove
+                </button>
+              </div>
+            </li>
           }
-        </div>
-      </section>
+        </ul>
+      }
 
-      <section hlmCard>
+      <section hlmCard class="max-w-3xl">
         <div hlmCardHeader>
           <h2 hlmCardTitle>Invite</h2>
+          <p hlmCardDescription>The membership links when they sign in with this email.</p>
         </div>
         <div hlmCardContent>
-          <form class="grid gap-3 md:grid-cols-3" (submit)="onInvite($event)">
+          <form class="grid gap-3 md:grid-cols-[1fr_10rem_auto]" (submit)="onInvite($event)">
             <input hlmInput type="email" placeholder="name@hospital.org" [formField]="inviteForm.email" />
             <select hlmInput [formField]="inviteForm.role">
               @for (role of roles; track role) {
@@ -105,6 +87,7 @@ export class MembersPage {
   protected readonly store = inject(MembersStore);
   protected readonly roles = MEMBER_ROLES;
   protected readonly roleLabel = roleLabel;
+  protected readonly initials = initials;
   protected readonly model = signal({ email: '', role: 'QueryUser' as AppRole });
   protected readonly inviteForm = form(this.model, (schema) => {
     required(schema.email);

@@ -13,42 +13,71 @@ import { StatusBanner } from '../shared/status-banner';
   imports: [HlmBadge, HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmTableImports],
   template: `
     <div class="grid gap-6">
-      <header class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Uploads</h1>
-        <p class="text-muted-foreground text-sm">
-          Stage an .xlsx against an activated mapping, then commit valid rows into this tenant’s
-          customer store.
-        </p>
-      </header>
-
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
-      <section hlmCard>
-        <div hlmCardHeader>
-          <h2 hlmCardTitle>New workbook</h2>
-        </div>
-        <div hlmCardContent>
-          <form class="grid gap-3 md:grid-cols-[1fr_1fr_auto]" (submit)="onUpload($event)">
-            <select hlmInput name="mappingProfileId" required>
-              <option value="">Activated mapping</option>
-              @for (profile of activated(); track profile.id) {
-                <option [value]="profile.id">{{ profile.name }} (v{{ profile.current.versionNumber }})</option>
-              }
-            </select>
-            <input hlmInput type="file" name="file" accept=".xlsx" required />
-            <button hlmBtn type="submit" [disabled]="store.saving()">
-              {{ store.saving() ? 'Uploading…' : 'Upload' }}
-            </button>
-          </form>
-        </div>
-      </section>
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+        <section hlmCard>
+          <div hlmCardHeader class="border-border border-b">
+            <h2 hlmCardTitle>New workbook</h2>
+            <p hlmCardDescription>Upload against an activated mapping. Staging never writes customers.</p>
+          </div>
+          <div hlmCardContent>
+            <form class="grid gap-3" (submit)="onUpload($event)">
+              <select hlmInput name="mappingProfileId" required>
+                <option value="">Activated mapping</option>
+                @for (profile of activated(); track profile.id) {
+                  <option [value]="profile.id">{{ profile.name }} (v{{ profile.current.versionNumber }})</option>
+                }
+              </select>
+              <input hlmInput type="file" name="file" accept=".xlsx" required />
+              <button hlmBtn class="w-fit" type="submit" [disabled]="store.saving()">
+                {{ store.saving() ? 'Uploading…' : 'Stage workbook' }}
+              </button>
+            </form>
+          </div>
+        </section>
+
+        @if (latestStaged(); as batch) {
+          <aside hlmCard>
+            <div hlmCardHeader>
+              <p hlmCardDescription>{{ batch.fileName }}</p>
+              <h2 class="text-3xl font-semibold tracking-tight">{{ batch.totalRows }}</h2>
+              <p class="text-muted-foreground text-sm">rows staged</p>
+            </div>
+            <div hlmCardContent class="grid gap-4">
+              <dl class="grid grid-cols-3 gap-3 text-center">
+                <div class="bg-muted rounded-md px-2 py-3">
+                  <dt class="text-muted-foreground text-[10px] tracking-[0.12em] uppercase">Valid</dt>
+                  <dd class="text-lg font-semibold">{{ batch.validRows }}</dd>
+                </div>
+                <div class="bg-muted rounded-md px-2 py-3">
+                  <dt class="text-muted-foreground text-[10px] tracking-[0.12em] uppercase">Invalid</dt>
+                  <dd class="text-lg font-semibold">{{ batch.invalidRows }}</dd>
+                </div>
+                <div class="bg-muted rounded-md px-2 py-3">
+                  <dt class="text-muted-foreground text-[10px] tracking-[0.12em] uppercase">Review</dt>
+                  <dd class="text-lg font-semibold">{{ batch.reviewRows }}</dd>
+                </div>
+              </dl>
+              <p class="text-muted-foreground text-xs">Policy: {{ batch.commitPolicy }}.</p>
+              <button hlmBtn type="button" (click)="store.commit(batch.id)">
+                Commit {{ batch.validRows }} records
+              </button>
+              <button hlmBtn variant="ghost" type="button" (click)="store.cancel(batch.id)">Cancel</button>
+            </div>
+          </aside>
+        }
+      </div>
 
       <section hlmCard>
-        <div hlmCardContent>
+        <div hlmCardHeader class="border-border border-b">
+          <h2 hlmCardTitle>Batches</h2>
+        </div>
+        <div hlmCardContent class="p-0">
           @if (store.loading()) {
-            <p class="text-muted-foreground text-sm">Loading batches…</p>
+            <p class="text-muted-foreground px-4 py-6 text-sm">Loading batches…</p>
           } @else if (!store.batches().length) {
-            <p class="text-muted-foreground text-sm">No upload jobs yet.</p>
+            <p class="text-muted-foreground px-4 py-6 text-sm">No upload jobs yet.</p>
           } @else {
             <div hlmTableContainer>
               <table hlmTable>
@@ -98,6 +127,9 @@ export class UploadsPage {
   protected readonly store = inject(UploadsStore);
   protected readonly activated = computed(() =>
     this.store.profiles().filter((profile) => profile.current?.activated),
+  );
+  protected readonly latestStaged = computed(
+    () => this.store.batches().find((batch) => batch.status === 'Staged') ?? null,
   );
 
   constructor() {

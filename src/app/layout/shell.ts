@@ -241,7 +241,7 @@ export class Shell {
     return {
       kicker: 'Records',
       title: 'Customer search',
-      blurb: 'Filters are generated from GET /api/customers/filterable-attributes.',
+      blurb: 'Search any value, or narrow the list with catalog filters.',
     };
   }
 }

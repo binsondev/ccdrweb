@@ -1,5 +1,4 @@
 import { Component, computed, signal } from '@angular/core';
-import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
@@ -19,7 +18,6 @@ type TextDraft = { op: string; value: string };
 @Component({
   selector: 'ccdr-proto-search',
   imports: [
-    HlmBadge,
     HlmButton,
     HlmCheckbox,
     HlmInput,
@@ -53,8 +51,7 @@ type TextDraft = { op: string; value: string };
               }
             </div>
             <p hlmCardDescription>
-              Built from GET /api/customers/filterable-attributes. Only active, filterable catalog
-              fields appear.
+              Only catalog fields marked filterable appear here. Every selected filter applies together.
             </p>
           </div>
           <div hlmCardContent class="grid gap-5 py-4">
@@ -223,19 +220,11 @@ type TextDraft = { op: string; value: string };
           </div>
         }
 
-        <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-muted-foreground text-[11px] font-medium tracking-[0.14em] uppercase">
             {{ rows().length }} of {{ catalog.length }} records
           </p>
-          <span hlmBadge variant="outline">AND across filters</span>
-        </div>
 
-        <pre
-          class="bg-muted text-muted-foreground overflow-x-auto rounded-md border border-dashed p-3 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap"
-          tabindex="0"
-        >{{ queryPreview() }}</pre>
-
-        <section hlmCard>
+          <section hlmCard>
           <div hlmCardContent class="p-0">
             <div hlmTableContainer>
               <table hlmTable>
@@ -345,25 +334,6 @@ export class PrototypeSearch {
       }
     }
     return items;
-  });
-
-  protected readonly queryPreview = computed(() => {
-    const params: string[] = [];
-    if (this.q().trim()) params.push(`q=${encodeURIComponent(this.q().trim())}`);
-    for (const attr of this.facets) {
-      const text = this.text()[attr.code];
-      if (text?.value.trim()) {
-        params.push(`filter=${attr.code}:${text.op}:${encodeURIComponent(text.value.trim())}`);
-      }
-      for (const value of this.options()[attr.code] ?? []) {
-        params.push(`filter=${attr.code}:eq:${encodeURIComponent(value)}`);
-      }
-      if (this.min()[attr.code]) params.push(`filter=${attr.code}:gte:${this.min()[attr.code]}`);
-      if (this.max()[attr.code]) params.push(`filter=${attr.code}:lte:${this.max()[attr.code]}`);
-      if (this.bools()[attr.code]) params.push(`filter=${attr.code}:eq:${this.bools()[attr.code]}`);
-    }
-    const qs = params.length ? `?${params.join('&')}` : '';
-    return `GET /api/customers${qs || '\n(no filters — list all in tenant)'}`;
   });
 
   protected readonly rows = computed(() => {

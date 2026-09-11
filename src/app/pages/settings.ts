@@ -1,45 +1,62 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
-import { HlmInput } from '@spartan-ng/helm/input';
 import { AuthStore } from '../core/auth.store';
 import { SettingsStore } from '../core/settings.store';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-settings',
-  imports: [HlmButton, HlmInput, StatusBanner, ...HlmCardImports],
+  imports: [HlmButton, StatusBanner, ...HlmCardImports],
   template: `
     <div class="grid gap-6">
-      <header class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Tenant settings</h1>
-        <p class="text-muted-foreground text-sm">
-          Commit policy controls whether a staged workbook writes only valid rows, or nothing if any
-          row fails.
-        </p>
-      </header>
-
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
-      <section hlmCard>
-        <div hlmCardContent>
+      <section hlmCard class="max-w-xl">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Upload commit policy</h2>
+          <p hlmCardDescription>
+            Staged workbooks never write until someone commits. Choose whether a bad row blocks the
+            rest of the file.
+          </p>
+        </div>
+        <div hlmCardContent class="grid gap-3">
           @if (store.loading()) {
             <p class="text-muted-foreground text-sm">Loading settings…</p>
           } @else {
-            <form class="grid max-w-md gap-3" (submit)="onSave($event)">
-              <label class="grid gap-1 text-sm">
-                Upload commit policy
-                <select hlmInput name="policy" [value]="store.settings()?.uploadCommitPolicy ?? 'ValidOnly'">
-                  <option value="ValidOnly">Valid rows only</option>
-                  <option value="AllOrNothing">All or nothing</option>
-                </select>
-              </label>
-              @if (auth.canSettingsWrite()) {
-                <button hlmBtn type="submit" [disabled]="store.saving()">
-                  {{ store.saving() ? 'Saving…' : 'Save policy' }}
-                </button>
-              }
-            </form>
+            <button
+              type="button"
+              class="rounded-md border px-4 py-3 text-left"
+              [class.border-primary]="policy() === 'ValidOnly'"
+              [class.bg-accent]="policy() === 'ValidOnly'"
+              [class.border-border]="policy() !== 'ValidOnly'"
+              [disabled]="!auth.canSettingsWrite()"
+              (click)="policy.set('ValidOnly')"
+            >
+              <span class="block text-sm font-medium">Valid rows only</span>
+              <span class="text-muted-foreground mt-1 block text-sm">
+                Commit writes good rows. Invalid rows stay in the batch for download.
+              </span>
+            </button>
+            <button
+              type="button"
+              class="rounded-md border px-4 py-3 text-left"
+              [class.border-primary]="policy() === 'AllOrNothing'"
+              [class.bg-accent]="policy() === 'AllOrNothing'"
+              [class.border-border]="policy() !== 'AllOrNothing'"
+              [disabled]="!auth.canSettingsWrite()"
+              (click)="policy.set('AllOrNothing')"
+            >
+              <span class="block text-sm font-medium">All or nothing</span>
+              <span class="text-muted-foreground mt-1 block text-sm">
+                If any row fails, the registry does not change.
+              </span>
+            </button>
+            @if (auth.canSettingsWrite()) {
+              <button hlmBtn class="mt-1 w-fit" type="button" [disabled]="store.saving()" (click)="onSave()">
+                {{ store.saving() ? 'Saving…' : 'Save policy' }}
+              </button>
+            }
           }
         </div>
       </section>
@@ -49,6 +66,7 @@ import { StatusBanner } from '../shared/status-banner';
 export class SettingsPage {
   protected readonly auth = inject(AuthStore);
   protected readonly store = inject(SettingsStore);
+  protected readonly policy = signal<'ValidOnly' | 'AllOrNothing'>('ValidOnly');
 
   constructor() {
     effect(() => {
@@ -56,13 +74,13 @@ export class SettingsPage {
         void this.store.load();
       }
     });
+    effect(() => {
+      const current = this.store.settings()?.uploadCommitPolicy;
+      if (current) this.policy.set(current);
+    });
   }
 
-  protected onSave(event: Event) {
-    event.preventDefault();
-    const policy = String(new FormData(event.target as HTMLFormElement).get('policy'));
-    if (policy === 'ValidOnly' || policy === 'AllOrNothing') {
-      void this.store.save(policy);
-    }
+  protected onSave() {
+    void this.store.save(this.policy());
   }
 }

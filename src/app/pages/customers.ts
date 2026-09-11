@@ -1,164 +1,398 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
-import { CustomersStore } from '../core/customers.store';
-import { displayValue } from '../core/format';
+import { CustomersStore, type FilterChip } from '../core/customers.store';
+import { displayValue, operatorLabel } from '../core/format';
+import { Customer, FilterableAttribute } from '../core/models';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-customers',
-  imports: [HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmTableImports],
+  imports: [
+    HlmButton,
+    HlmCheckbox,
+    HlmInput,
+    HlmLabel,
+    HlmSeparator,
+    StatusBanner,
+    ...HlmAlertImports,
+    ...HlmCardImports,
+    ...HlmTableImports,
+  ],
   template: `
-    <div class="grid gap-6">
-      <header class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Customers</h1>
-        <p class="text-muted-foreground text-sm">
-          Records are bags of tenant-defined attributes. Search any text value, or filter on
-          attributes marked filterable.
-        </p>
-      </header>
-
+    <div class="grid gap-4">
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
       @if (store.matchKeyWarning()) {
-        <p class="text-muted-foreground text-sm">{{ store.matchKeyWarning() }}</p>
+        <div hlmAlert>
+          <p hlmAlertTitle>Match key</p>
+          <p hlmAlertDescription>{{ store.matchKeyWarning() }}</p>
+        </div>
       }
 
-      <section hlmCard>
-        <div hlmCardHeader>
-          <h2 hlmCardTitle>Search</h2>
-        </div>
-        <div hlmCardContent>
-          <form class="grid gap-3 md:grid-cols-4" (submit)="onSearch($event)">
-            <input
-              hlmInput
-              type="search"
-              placeholder="Any text value"
-              [value]="store.q()"
-              (input)="onQuery($event)"
-            />
-            <select
-              hlmInput
-              [value]="store.filterCode()"
-              (change)="onFilterCode($event)"
-            >
-              <option value="">No attribute filter</option>
-              @for (attr of store.filterable(); track attr.code) {
-                <option [value]="attr.code">{{ attr.label }}</option>
-              }
-            </select>
-            <select hlmInput [value]="store.filterOp()" (change)="onFilterOp($event)">
-              @for (op of operators(); track op) {
-                <option [value]="op">{{ op || 'equals' }}</option>
-              }
-            </select>
-            <div class="flex gap-2">
-              <input
-                hlmInput
-                [value]="store.filterValue()"
-                (input)="onFilterValue($event)"
-                placeholder="Value"
-              />
-              <button hlmBtn type="submit">Search</button>
-            </div>
-          </form>
-        </div>
-      </section>
+      <div class="flex flex-wrap gap-2">
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="lg:hidden"
+          type="button"
+          (click)="panelOpen.set(!panelOpen())"
+        >
+          {{ panelOpen() ? 'Hide filters' : 'Show filters' }}
+        </button>
+        @if (auth.canCustomerWrite()) {
+          <button hlmBtn size="sm" class="ml-auto" type="button" (click)="openCompose()">
+            New record
+          </button>
+        }
+      </div>
 
-      <section hlmCard>
-        <div hlmCardHeader>
-          <h2 hlmCardTitle>Results</h2>
-          <p hlmCardDescription>{{ store.count() }} in this tenant</p>
-        </div>
-        <div hlmCardContent>
-          @if (store.loading()) {
-            <p class="text-muted-foreground text-sm">Loading customers…</p>
-          } @else if (!store.customers().length) {
-            <p class="text-muted-foreground text-sm">
-              No customers match this search. Create a record or upload a workbook.
-            </p>
-          } @else {
-            <div hlmTableContainer>
-              <table hlmTable>
-                <thead hlmTHead>
-                  <tr hlmTr>
-                    @for (col of columns(); track col.code) {
-                      <th hlmTh>{{ col.label }}</th>
+      <div class="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
+        <aside class="lg:sticky lg:top-4 lg:block" [class.hidden]="!panelOpen()">
+          <section hlmCard size="sm">
+            <div hlmCardHeader class="border-border border-b">
+              <div class="flex items-center justify-between gap-2">
+                <h2 hlmCardTitle>Filters</h2>
+                @if (store.chips().length) {
+                  <button hlmBtn variant="ghost" size="xs" type="button" (click)="clearAll()">
+                    Clear all
+                  </button>
+                }
+              </div>
+              <p hlmCardDescription>
+                Only catalog fields marked filterable appear here. Every selected filter applies together.
+              </p>
+            </div>
+            <div hlmCardContent class="grid gap-5 py-4">
+              @if (!store.filterable().length && !store.loading()) {
+                <p class="text-muted-foreground text-sm">
+                  No filterable attributes in this catalog yet.
+                </p>
+              }
+              @for (group of store.groups(); track group) {
+                <section>
+                  <h3 class="text-muted-foreground mb-3 text-[10px] font-semibold tracking-[0.16em] uppercase">
+                    {{ group }}
+                  </h3>
+                  <div class="grid gap-4">
+                    @for (attr of inGroup(group); track attr.code) {
+                      <div>
+                        <p class="mb-2 text-xs font-medium">{{ attr.label }}</p>
+                        @switch (attr.dataType) {
+                          @case ('Dropdown') {
+                            <ul class="grid gap-2">
+                              @for (opt of attr.options; track opt.value) {
+                                <li>
+                                  <label hlmLabel class="font-normal">
+                                    <hlm-checkbox
+                                      [checked]="selectedOptions(attr.code).includes(opt.value)"
+                                      (checkedChange)="onOption(attr.code, opt.value, $event)"
+                                    />
+                                    {{ opt.label }}
+                                  </label>
+                                </li>
+                              }
+                            </ul>
+                          }
+                          @case ('Boolean') {
+                            <div class="flex flex-wrap gap-1">
+                              @for (choice of boolChoices; track choice.value) {
+                                <button
+                                  hlmBtn
+                                  size="xs"
+                                  type="button"
+                                  [variant]="boolValue(attr.code) === choice.value ? 'default' : 'outline'"
+                                  (click)="onBool(attr.code, choice.value)"
+                                >
+                                  {{ choice.label }}
+                                </button>
+                              }
+                            </div>
+                          }
+                          @case ('Integer') {
+                            <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                              <input
+                                hlmInput
+                                type="number"
+                                [value]="minValue(attr.code)"
+                                (input)="onMin(attr.code, $event)"
+                                placeholder="Min"
+                              />
+                              <span class="text-muted-foreground text-xs">to</span>
+                              <input
+                                hlmInput
+                                type="number"
+                                [value]="maxValue(attr.code)"
+                                (input)="onMax(attr.code, $event)"
+                                placeholder="Max"
+                              />
+                            </div>
+                          }
+                          @case ('Decimal') {
+                            <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                              <input
+                                hlmInput
+                                type="number"
+                                step="0.01"
+                                [value]="minValue(attr.code)"
+                                (input)="onMin(attr.code, $event)"
+                                placeholder="Min"
+                              />
+                              <span class="text-muted-foreground text-xs">to</span>
+                              <input
+                                hlmInput
+                                type="number"
+                                step="0.01"
+                                [value]="maxValue(attr.code)"
+                                (input)="onMax(attr.code, $event)"
+                                placeholder="Max"
+                              />
+                            </div>
+                          }
+                          @case ('Date') {
+                            <div class="grid grid-cols-2 gap-2">
+                              <input
+                                hlmInput
+                                type="date"
+                                [value]="minValue(attr.code)"
+                                (input)="onMin(attr.code, $event)"
+                              />
+                              <input
+                                hlmInput
+                                type="date"
+                                [value]="maxValue(attr.code)"
+                                (input)="onMax(attr.code, $event)"
+                              />
+                            </div>
+                          }
+                          @case ('DateTime') {
+                            <div class="grid grid-cols-1 gap-2">
+                              <input
+                                hlmInput
+                                type="datetime-local"
+                                [value]="minValue(attr.code)"
+                                (input)="onMin(attr.code, $event)"
+                              />
+                              <input
+                                hlmInput
+                                type="datetime-local"
+                                [value]="maxValue(attr.code)"
+                                (input)="onMax(attr.code, $event)"
+                              />
+                            </div>
+                          }
+                          @default {
+                            <div class="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2">
+                              <select
+                                hlmInput
+                                [value]="textDraft(attr).op"
+                                (change)="onTextOp(attr.code, $event)"
+                              >
+                                @for (op of attr.operators; track op) {
+                                  <option [value]="op">{{ operatorLabel(op) }}</option>
+                                }
+                              </select>
+                              <input
+                                hlmInput
+                                type="search"
+                                [value]="textDraft(attr).value"
+                                (input)="onTextValue(attr.code, attr.operators[0], $event)"
+                                [placeholder]="attr.label"
+                              />
+                            </div>
+                          }
+                        }
+                      </div>
                     }
-                    <th hlmTh>Updated</th>
-                  </tr>
-                </thead>
-                <tbody hlmTBody>
-                  @for (row of store.customers(); track row.id) {
-                    <tr hlmTr>
-                      @for (col of columns(); track col.code) {
-                        <td hlmTd>{{ displayValue(row.attributes[col.code]) }}</td>
-                      }
-                      <td hlmTd>{{ row.updatedAt.slice(0, 10) }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-        </div>
-      </section>
-
-      @if (auth.canCustomerWrite()) {
-        <section hlmCard>
-          <div hlmCardHeader>
-            <h2 hlmCardTitle>Create or update</h2>
-            <p hlmCardDescription>
-              Match-key attributes update an existing bag. Leave a field blank to omit it.
-            </p>
-          </div>
-          <div hlmCardContent>
-            <form class="grid gap-3 md:grid-cols-2" (submit)="onCreate($event)">
-              @for (attr of store.attributes(); track attr.code) {
-                @if (attr.active) {
-                  <label class="grid gap-1 text-sm">
-                    <span>
-                      {{ attr.label }}
-                      @if (attr.required) {
-                        <span class="text-destructive">*</span>
-                      }
-                      @if (attr.matchKey) {
-                        <span class="text-muted-foreground">(match key)</span>
-                      }
-                    </span>
-                    <input hlmInput [name]="attr.code" [placeholder]="attr.code" />
-                  </label>
+                  </div>
+                </section>
+                @if (!$last) {
+                  <hlm-separator />
                 }
               }
-              <div class="md:col-span-2">
-                <button hlmBtn type="submit" [disabled]="store.saving()">
-                  {{ store.saving() ? 'Saving…' : 'Save customer' }}
+            </div>
+          </section>
+        </aside>
+
+        <section class="grid min-w-0 gap-4">
+          <input
+            hlmInput
+            type="search"
+            placeholder="Search any value across the bag…"
+            [value]="store.q()"
+            (input)="onQuery($event)"
+          />
+
+          @if (store.chips().length) {
+            <div class="flex flex-wrap gap-1.5">
+              @for (chip of store.chips(); track chip.id) {
+                <button hlmBtn variant="secondary" size="xs" type="button" (click)="removeChip(chip)">
+                  {{ chip.label }}
+                  <span aria-hidden="true">×</span>
                 </button>
-              </div>
-            </form>
-          </div>
+              }
+            </div>
+          }
+
+          <p class="text-muted-foreground text-[11px] font-medium tracking-[0.14em] uppercase">
+            {{ store.count() }} records
+          </p>
+
+          <section hlmCard>
+            <div hlmCardContent class="p-0">
+              @if (store.loading() && !store.customers().length) {
+                <p class="text-muted-foreground px-4 py-6 text-sm">Loading customers…</p>
+              } @else {
+                <div hlmTableContainer>
+                  <table hlmTable>
+                    <thead hlmTHead>
+                      <tr hlmTr>
+                        @for (col of columns(); track col.code) {
+                          <th hlmTh>{{ col.label }}</th>
+                        }
+                        <th hlmTh>Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody hlmTBody>
+                      @if (!store.customers().length) {
+                        <tr hlmTr>
+                          <td hlmTd [attr.colspan]="columns().length + 1" class="text-muted-foreground">
+                            No records match these filters. Clear a chip or widen the range.
+                          </td>
+                        </tr>
+                      } @else {
+                        @for (row of store.customers(); track row.id) {
+                          <tr
+                            hlmTr
+                            class="hover:bg-muted/50 cursor-pointer"
+                            [class.bg-muted]="selected()?.id === row.id"
+                            (click)="openRecord(row)"
+                          >
+                            @for (col of columns(); track col.code) {
+                              <td hlmTd>{{ displayValue(row.attributes[col.code]) }}</td>
+                            }
+                            <td hlmTd class="text-muted-foreground">{{ row.updatedAt.slice(0, 10) }}</td>
+                          </tr>
+                        }
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          </section>
         </section>
-      }
+      </div>
     </div>
+
+    @if (selected(); as row) {
+      <div class="bg-foreground/25 fixed inset-0 z-40" (click)="selected.set(null)"></div>
+      <aside
+        class="bg-card text-card-foreground border-border fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l shadow-lg"
+        role="dialog"
+        aria-label="Customer record"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between gap-4 px-6 py-5">
+          <div>
+            <p class="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+              Record bag
+            </p>
+            <h2 class="text-xl font-semibold tracking-tight">{{ recordTitle(row) }}</h2>
+          </div>
+          <button hlmBtn variant="ghost" size="sm" type="button" (click)="selected.set(null)">
+            Close
+          </button>
+        </div>
+        <dl class="grid flex-1 gap-4 overflow-y-auto px-6 pb-6">
+          @for (attr of store.attributes(); track attr.code) {
+            @if (attr.active) {
+              <div>
+                <dt class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
+                  {{ attr.label }}
+                  @if (attr.matchKey) {
+                    <span class="text-primary"> · match key</span>
+                  }
+                </dt>
+                <dd>{{ displayValue(row.attributes[attr.code]) }}</dd>
+              </div>
+            }
+          }
+        </dl>
+      </aside>
+    }
+
+    @if (composing()) {
+      <div class="bg-foreground/25 fixed inset-0 z-40" (click)="composing.set(false)"></div>
+      <aside
+        class="bg-card text-card-foreground border-border fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l shadow-lg"
+        role="dialog"
+        aria-label="New customer"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between px-6 py-5">
+          <div>
+            <p class="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+              Create or update
+            </p>
+            <h2 class="text-xl font-semibold tracking-tight">New record</h2>
+          </div>
+          <button hlmBtn variant="ghost" size="sm" type="button" (click)="composing.set(false)">
+            Close
+          </button>
+        </div>
+        <form class="grid gap-3 overflow-y-auto px-6 pb-6" (submit)="onCreate($event)">
+          @for (attr of store.attributes(); track attr.code) {
+            @if (attr.active) {
+              <label class="grid gap-1.5 text-sm font-medium">
+                <span>
+                  {{ attr.label }}
+                  @if (attr.required) {
+                    <span class="text-destructive">*</span>
+                  }
+                  @if (attr.matchKey) {
+                    <span class="text-muted-foreground font-normal">(match key)</span>
+                  }
+                </span>
+                <input hlmInput [name]="attr.code" [placeholder]="attr.code" />
+              </label>
+            }
+          }
+          <button hlmBtn class="mt-2" type="submit" [disabled]="store.saving()">
+            {{ store.saving() ? 'Saving…' : 'Save bag' }}
+          </button>
+        </form>
+      </aside>
+    }
   `,
 })
 export class CustomersPage {
   protected readonly auth = inject(AuthStore);
   protected readonly store = inject(CustomersStore);
   protected readonly displayValue = displayValue;
+  protected readonly operatorLabel = operatorLabel;
+  protected readonly panelOpen = signal(true);
+  protected readonly selected = signal<Customer | null>(null);
+  protected readonly composing = signal(false);
+  protected readonly boolChoices = [
+    { value: '', label: 'Any' },
+    { value: 'true', label: 'Yes' },
+    { value: 'false', label: 'No' },
+  ];
+
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   protected readonly columns = computed(() => {
     const visible = this.store.attributes().filter((attr) => attr.active && attr.listVisible);
     return visible.length ? visible : this.store.attributes().filter((attr) => attr.active).slice(0, 4);
-  });
-
-  protected readonly operators = computed(() => {
-    const code = this.store.filterCode();
-    const attr = this.store.filterable().find((item) => item.code === code);
-    return attr?.operators?.length ? attr.operators : [''];
   });
 
   constructor() {
@@ -169,35 +403,90 @@ export class CustomersPage {
     });
   }
 
+  protected inGroup(group: string) {
+    return this.store.filterable().filter((attr) => (attr.group?.trim() || 'Other') === group);
+  }
+
+  protected textDraft(attr: FilterableAttribute) {
+    return this.store.text()[attr.code] ?? { op: attr.operators[0] ?? 'eq', value: '' };
+  }
+
+  protected selectedOptions(code: string) {
+    return this.store.options()[code] ?? [];
+  }
+
+  protected minValue(code: string) {
+    return this.store.min()[code] ?? '';
+  }
+
+  protected maxValue(code: string) {
+    return this.store.max()[code] ?? '';
+  }
+
+  protected boolValue(code: string) {
+    return this.store.bools()[code] ?? '';
+  }
+
+  protected recordTitle(row: Customer) {
+    const name = row.attributes['full_name'] ?? row.attributes['name'];
+    if (typeof name === 'string' && name.trim()) return name;
+    const first = this.columns()[0];
+    return first ? displayValue(row.attributes[first.code]) : row.id.slice(0, 8);
+  }
+
   protected onQuery(event: Event) {
     this.store.setSearch((event.target as HTMLInputElement).value);
+    this.scheduleLoad();
   }
 
-  protected onFilterCode(event: Event) {
-    const code = (event.target as HTMLSelectElement).value;
-    const attr = this.store.filterable().find((item) => item.code === code);
-    this.store.setFilter(code, attr?.operators[0] ?? '', this.store.filterValue());
-  }
-
-  protected onFilterOp(event: Event) {
-    this.store.setFilter(
-      this.store.filterCode(),
-      (event.target as HTMLSelectElement).value,
-      this.store.filterValue(),
-    );
-  }
-
-  protected onFilterValue(event: Event) {
-    this.store.setFilter(
-      this.store.filterCode(),
-      this.store.filterOp(),
-      (event.target as HTMLInputElement).value,
-    );
-  }
-
-  protected onSearch(event: Event) {
-    event.preventDefault();
+  protected onTextOp(code: string, event: Event) {
+    this.store.setTextOp(code, (event.target as HTMLSelectElement).value);
     void this.store.load();
+  }
+
+  protected onTextValue(code: string, fallbackOp: string, event: Event) {
+    this.store.setTextValue(code, fallbackOp, (event.target as HTMLInputElement).value);
+    this.scheduleLoad();
+  }
+
+  protected onOption(code: string, value: string, checked: boolean) {
+    this.store.setOption(code, value, checked);
+    void this.store.load();
+  }
+
+  protected onMin(code: string, event: Event) {
+    this.store.setMin(code, (event.target as HTMLInputElement).value);
+    this.scheduleLoad();
+  }
+
+  protected onMax(code: string, event: Event) {
+    this.store.setMax(code, (event.target as HTMLInputElement).value);
+    this.scheduleLoad();
+  }
+
+  protected onBool(code: string, value: string) {
+    this.store.setBool(code, value);
+    void this.store.load();
+  }
+
+  protected removeChip(chip: FilterChip) {
+    this.store.removeChip(chip);
+    void this.store.load();
+  }
+
+  protected clearAll() {
+    this.store.clearFilters();
+    void this.store.load();
+  }
+
+  protected openRecord(row: Customer) {
+    this.composing.set(false);
+    this.selected.set(row);
+  }
+
+  protected openCompose() {
+    this.selected.set(null);
+    this.composing.set(true);
   }
 
   protected onCreate(event: Event) {
@@ -210,6 +499,16 @@ export class CustomersPage {
         attributes[key] = value.trim();
       }
     }
-    void this.store.create(attributes).then(() => form.reset());
+    void this.store.create(attributes).then((ok) => {
+      if (ok) {
+        form.reset();
+        this.composing.set(false);
+      }
+    });
+  }
+
+  private scheduleLoad() {
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => void this.store.load(), 280);
   }
 }

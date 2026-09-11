@@ -1,9 +1,12 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormField, form, required } from '@angular/forms/signals';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AttributesStore } from '../core/attributes.store';
 import { AuthStore } from '../core/auth.store';
@@ -12,100 +15,115 @@ import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-attributes',
-  imports: [FormField, HlmBadge, HlmButton, HlmInput, StatusBanner, ...HlmCardImports, ...HlmTableImports],
+  imports: [
+    FormField,
+    HlmBadge,
+    HlmButton,
+    HlmCheckbox,
+    HlmInput,
+    HlmLabel,
+    StatusBanner,
+    ...HlmAlertImports,
+    ...HlmCardImports,
+    ...HlmTableImports,
+  ],
   template: `
     <div class="grid gap-6">
-      <header class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Attributes</h1>
-        <p class="text-muted-foreground text-sm">
-          This tenant’s catalog. There is no fixed customer class — every column here becomes a field
-          on customer bags and Excel mappings.
-        </p>
-      </header>
-
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
       @if (store.matchKeyWarning()) {
-        <p class="text-muted-foreground text-sm">{{ store.matchKeyWarning() }}</p>
+        <div hlmAlert>
+          <p hlmAlertTitle>Match key</p>
+          <p hlmAlertDescription>{{ store.matchKeyWarning() }}</p>
+        </div>
       }
 
-      <section hlmCard>
-        <div hlmCardContent>
-          @if (store.loading()) {
-            <p class="text-muted-foreground text-sm">Loading catalog…</p>
-          } @else if (!store.attributes().length) {
-            <p class="text-muted-foreground text-sm">
-              No attributes yet. Add a match-key field before you import customers.
-            </p>
-          } @else {
-            <div hlmTableContainer>
-              <table hlmTable>
-                <thead hlmTHead>
-                  <tr hlmTr>
-                    <th hlmTh>Code</th>
-                    <th hlmTh>Label</th>
-                    <th hlmTh>Type</th>
-                    <th hlmTh>Flags</th>
-                    @if (auth.canCatalogWrite()) {
-                      <th hlmTh></th>
-                    }
-                  </tr>
-                </thead>
-                <tbody hlmTBody>
-                  @for (attr of store.attributes(); track attr.code) {
+      @if (store.loading()) {
+        <p class="text-muted-foreground text-sm">Loading catalog…</p>
+      } @else if (!store.attributes().length) {
+        <p class="text-muted-foreground text-sm">
+          No attributes yet. Add a match-key field before you import customers.
+        </p>
+      } @else {
+        @for (group of groups(); track group) {
+          <section hlmCard>
+            <div hlmCardHeader class="border-border border-b">
+              <h2 hlmCardTitle>{{ group }}</h2>
+            </div>
+            <div hlmCardContent class="p-0">
+              <div hlmTableContainer>
+                <table hlmTable>
+                  <thead hlmTHead>
                     <tr hlmTr>
-                      <td hlmTd class="font-mono text-xs">{{ attr.code }}</td>
-                      <td hlmTd>{{ attr.label }}</td>
-                      <td hlmTd>{{ attr.dataType }}</td>
-                      <td hlmTd>
-                        <div class="flex flex-wrap gap-1">
-                          @if (attr.matchKey) {
-                            <span hlmBadge>Match key</span>
-                          }
-                          @if (attr.required) {
-                            <span hlmBadge variant="secondary">Required</span>
-                          }
-                          @if (attr.filterable) {
-                            <span hlmBadge variant="outline">Filterable</span>
-                          }
-                          @if (!attr.active) {
-                            <span hlmBadge variant="destructive">Inactive</span>
-                          }
-                        </div>
-                      </td>
+                      <th hlmTh>Code</th>
+                      <th hlmTh>Label</th>
+                      <th hlmTh>Type</th>
+                      <th hlmTh>Flags</th>
                       @if (auth.canCatalogWrite()) {
-                        <td hlmTd>
-                          <button hlmBtn variant="ghost" size="sm" type="button" (click)="store.toggleActive(attr)">
-                            {{ attr.active ? 'Deactivate' : 'Activate' }}
-                          </button>
-                        </td>
+                        <th hlmTh></th>
                       }
                     </tr>
-                  }
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody hlmTBody>
+                    @for (attr of byGroup(group); track attr.code) {
+                      <tr hlmTr>
+                        <td hlmTd class="font-mono text-xs">{{ attr.code }}</td>
+                        <td hlmTd>{{ attr.label }}</td>
+                        <td hlmTd>{{ attr.dataType }}</td>
+                        <td hlmTd>
+                          <div class="flex flex-wrap gap-1">
+                            @if (attr.matchKey) {
+                              <span hlmBadge>Match key</span>
+                            }
+                            @if (attr.required) {
+                              <span hlmBadge variant="secondary">Required</span>
+                            }
+                            @if (attr.filterable) {
+                              <span hlmBadge variant="outline">Filterable</span>
+                            }
+                            @if (!attr.active) {
+                              <span hlmBadge variant="destructive">Inactive</span>
+                            }
+                          </div>
+                        </td>
+                        @if (auth.canCatalogWrite()) {
+                          <td hlmTd>
+                            <button hlmBtn variant="ghost" size="sm" type="button" (click)="store.toggleActive(attr)">
+                              {{ attr.active ? 'Deactivate' : 'Activate' }}
+                            </button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
-          }
-        </div>
-      </section>
+          </section>
+        }
+      }
 
       @if (auth.canCatalogWrite()) {
-        <section hlmCard>
+        <section hlmCard class="max-w-3xl">
           <div hlmCardHeader>
             <h2 hlmCardTitle>Add attribute</h2>
             <p hlmCardDescription>Code cannot change after save.</p>
           </div>
           <div hlmCardContent>
             <form class="grid gap-3 md:grid-cols-2" (submit)="onCreate($event)">
-              <label class="grid gap-1 text-sm">
+              <label class="grid gap-1.5 text-sm font-medium">
                 Code
                 <input hlmInput [formField]="createForm.code" placeholder="phone" />
               </label>
-              <label class="grid gap-1 text-sm">
+              <label class="grid gap-1.5 text-sm font-medium">
                 Label
                 <input hlmInput [formField]="createForm.label" placeholder="Phone" />
               </label>
-              <label class="grid gap-1 text-sm">
+              <label class="grid gap-1.5 text-sm font-medium">
+                Group
+                <input hlmInput [formField]="createForm.group" placeholder="Contact" />
+              </label>
+              <label class="grid gap-1.5 text-sm font-medium">
                 Data type
                 <select hlmInput [formField]="createForm.dataType">
                   @for (type of types; track type) {
@@ -113,20 +131,20 @@ import { StatusBanner } from '../shared/status-banner';
                   }
                 </select>
               </label>
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" [formField]="createForm.matchKey" />
+              <label hlmLabel class="font-normal">
+                <hlm-checkbox [formField]="createForm.matchKey" />
                 Match key
               </label>
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" [formField]="createForm.required" />
+              <label hlmLabel class="font-normal">
+                <hlm-checkbox [formField]="createForm.required" />
                 Required
               </label>
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" [formField]="createForm.filterable" />
+              <label hlmLabel class="font-normal">
+                <hlm-checkbox [formField]="createForm.filterable" />
                 Filterable
               </label>
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" [formField]="createForm.listVisible" />
+              <label hlmLabel class="font-normal">
+                <hlm-checkbox [formField]="createForm.listVisible" />
                 Show in list
               </label>
               <div class="md:col-span-2">
@@ -148,6 +166,7 @@ export class AttributesPage {
   protected readonly model = signal({
     code: '',
     label: '',
+    group: '',
     dataType: 'Text' as DataType,
     matchKey: false,
     required: false,
@@ -159,12 +178,21 @@ export class AttributesPage {
     required(schema.label);
   });
 
+  protected readonly groups = computed(() => {
+    const names = this.store.attributes().map((attr) => attr.group?.trim() || 'Ungrouped');
+    return [...new Set(names)];
+  });
+
   constructor() {
     effect(() => {
       if (this.auth.tenantSlug()) {
         void this.store.load();
       }
     });
+  }
+
+  protected byGroup(group: string) {
+    return this.store.attributes().filter((attr) => (attr.group?.trim() || 'Ungrouped') === group);
   }
 
   protected onCreate(event: Event) {
@@ -174,6 +202,7 @@ export class AttributesPage {
       .create({
         code: value.code.trim(),
         label: value.label.trim(),
+        group: value.group.trim() || null,
         dataType: value.dataType,
         matchKey: value.matchKey,
         required: value.required,
@@ -186,6 +215,7 @@ export class AttributesPage {
         this.model.set({
           code: '',
           label: '',
+          group: '',
           dataType: 'Text',
           matchKey: false,
           required: false,

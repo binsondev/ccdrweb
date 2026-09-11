@@ -177,7 +177,7 @@ export type ProtoDataType =
   | 'Boolean'
   | 'Dropdown';
 
-/** Same shape as GET /api/customers/filterable-attributes */
+/** Filterable catalog fields used by the faceted search prototype. */
 export interface ProtoFilterable {
   code: string;
   label: string;
