@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import { HlmInput } from '@spartan-ng/helm/input';
@@ -25,12 +25,26 @@ import {
               (input)="setField(i, 'excelHeader', $event)"
               placeholder="Excel header"
             />
-            <select hlmInput [value]="row.attributeCode" (change)="setField(i, 'attributeCode', $event)">
-              <option value="">Attribute</option>
-              @for (attr of attributes(); track attr.code) {
-                <option [value]="attr.code">{{ attr.label }} ({{ attr.code }})</option>
+            <label class="grid gap-1 text-sm">
+              <select
+                hlmInput
+                [value]="selectValue(row)"
+                (change)="setField(i, 'attributeCode', $event)"
+              >
+                <option value="">Choose attribute</option>
+                @if (orphanedCode(row); as orphan) {
+                  <option [value]="orphan" [selected]="true">{{ orphan }}</option>
+                }
+                @for (attr of attributes(); track attr.recordType + ':' + attr.code) {
+                  <option [value]="attr.code" [selected]="attr.code === row.attributeCode">
+                    {{ attr.label }} ({{ attr.code }})
+                  </option>
+                }
+              </select>
+              @if (attributeLabel(row.attributeCode); as label) {
+                <span class="text-muted-foreground text-xs">Bound to {{ label }}</span>
               }
-            </select>
+            </label>
             <button hlmBtn variant="ghost" size="sm" type="button" (click)="remove(i)">Remove</button>
           </div>
           <div>
@@ -70,6 +84,27 @@ export class MappingBindingsEditor {
   readonly bindingsChange = output<MappingBindingDraft[]>();
 
   protected readonly transformOptions = CELL_TRANSFORM_OPTIONS;
+  private readonly codes = computed(
+    () => new Set(this.attributes().map((attr) => attr.code.toLowerCase())),
+  );
+
+  protected selectValue(row: MappingBindingDraft) {
+    // Re-apply the value only after options exist so the native select
+    // does not stick on the placeholder.
+    return this.attributes().length ? row.attributeCode : '';
+  }
+
+  protected orphanedCode(row: MappingBindingDraft) {
+    const code = row.attributeCode.trim();
+    if (!code || !this.attributes().length) return null;
+    return this.codes().has(code.toLowerCase()) ? null : code;
+  }
+
+  protected attributeLabel(code: string) {
+    if (!code) return null;
+    const attr = this.attributes().find((item) => item.code === code);
+    return attr ? `${attr.label} (${attr.code})` : code;
+  }
 
   protected needsDateFormat(code: string) {
     const type = this.attributes().find((attr) => attr.code === code)?.dataType;

@@ -50,12 +50,14 @@ export const MappingsStore = signalStore(
           api.mappingProfiles(recordType || undefined),
           recordType ? api.attributes(recordType) : Promise.resolve({ attributes: [] as AttributeDefinition[] }),
         ]);
+        const detail = store.detail();
+        const keepDetailCatalog = !!detail && detail.recordType !== recordType;
         patchState(store, {
           loading: false,
           recordType,
           recordTypes: types.recordTypes,
           profiles: profiles.profiles,
-          attributes: catalog.attributes,
+          attributes: keepDetailCatalog ? store.attributes() : catalog.attributes,
         });
         return true;
       } catch (err) {
@@ -75,6 +77,7 @@ export const MappingsStore = signalStore(
         patchState(store, {
           detailLoading: false,
           detail,
+          recordType: detail.recordType || store.recordType(),
           versions: versions.versions,
           attributes: catalog.attributes,
         });

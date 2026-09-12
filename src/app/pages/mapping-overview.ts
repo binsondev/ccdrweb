@@ -125,33 +125,16 @@ import { StatusBanner } from '../shared/status-banner';
           <div hlmCardHeader class="border-border border-b">
             <h2 hlmCardTitle>Column bindings</h2>
             <p hlmCardDescription>
+              {{ profile()!.current.bindings.length }} Excel headers mapped to
+              {{ profile()!.recordType }} attributes.
               @if (auth.canCatalogWrite()) {
-                Add columns or change transforms. Saving an activated mapping creates a new draft
-                version.
+                Saving an activated mapping creates a new draft version.
               } @else {
-                {{ profile()!.current.bindings.length }} Excel headers mapped to catalog codes.
                 Download an empty workbook with these headers to fill and upload.
               }
             </p>
           </div>
-          @if (auth.canCatalogWrite()) {
-            <div hlmCardContent class="grid gap-4 py-4">
-              <ccdr-mapping-bindings
-                [bindings]="drafts()"
-                [attributes]="store.attributes()"
-                (bindingsChange)="drafts.set($event)"
-              />
-              <button
-                hlmBtn
-                class="w-fit"
-                type="button"
-                [disabled]="store.saving()"
-                (click)="save()"
-              >
-                {{ saveLabel() }}
-              </button>
-            </div>
-          } @else if (!profile()!.current.bindings.length) {
+          @if (!profile()!.current.bindings.length) {
             <div hlmCardContent>
               <p class="text-muted-foreground py-2 text-sm">This version has no column bindings yet.</p>
             </div>
@@ -168,7 +151,7 @@ import { StatusBanner } from '../shared/status-banner';
                     </tr>
                   </thead>
                   <tbody hlmTBody>
-                    @for (bind of profile()!.current.bindings; track bind.excelHeader + bind.attributeCode) {
+                    @for (bind of profile()!.current.bindings; track bind.excelHeader + ':' + bind.attributeCode) {
                       <tr hlmTr>
                         <td hlmTd>{{ bind.excelHeader }}</td>
                         <td hlmTd>
@@ -190,6 +173,24 @@ import { StatusBanner } from '../shared/status-banner';
                   </tbody>
                 </table>
               </div>
+            </div>
+          }
+          @if (auth.canCatalogWrite()) {
+            <div hlmCardContent class="border-border grid gap-4 border-t py-4">
+              <ccdr-mapping-bindings
+                [bindings]="drafts()"
+                [attributes]="typedAttributes()"
+                (bindingsChange)="drafts.set($event)"
+              />
+              <button
+                hlmBtn
+                class="w-fit"
+                type="button"
+                [disabled]="store.saving()"
+                (click)="save()"
+              >
+                {{ saveLabel() }}
+              </button>
             </div>
           }
         </section>
@@ -255,6 +256,13 @@ export class MappingOverviewPage {
   );
 
   protected readonly profile = computed(() => this.store.detail());
+  protected readonly typedAttributes = computed(() => {
+    const type = this.profile()?.recordType;
+    const catalog = this.store.attributes();
+    if (!type) return catalog;
+    const scoped = catalog.filter((attr) => attr.recordType === type);
+    return scoped.length ? scoped : catalog;
+  });
   protected readonly saveLabel = computed(() => {
     if (this.store.saving()) return 'Saving…';
     return this.profile()?.current.immutable ? 'Save as new version' : 'Save bindings';
@@ -286,7 +294,7 @@ export class MappingOverviewPage {
   }
 
   protected attributeLabel(code: string) {
-    return this.store.attributes().find((attr) => attr.code === code)?.label ?? code;
+    return this.typedAttributes().find((attr) => attr.code === code)?.label ?? code;
   }
 
   protected save() {
