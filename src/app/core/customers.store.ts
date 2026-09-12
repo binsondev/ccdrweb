@@ -456,10 +456,10 @@ export const CustomersStore = signalStore(
           return false;
         }
       },
-      async create(recordType: string, attributes: Record<string, unknown>) {
+      async create(recordType: string, attributes: Record<string, unknown>, id?: string) {
         patchState(store, { saving: true, error: null, notice: null });
         try {
-          const saved = await api.saveCustomer(recordType, attributes);
+          const saved = await api.saveCustomer(recordType, attributes, id);
           patchState(store, {
             saving: false,
             notice: saved.outcome === 'updated' ? 'Existing record updated.' : 'Record created.',

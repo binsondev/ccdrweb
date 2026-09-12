@@ -145,8 +145,8 @@ export class Api {
     return this.http.get<CustomerListResponse>('/api/customers', { params });
   }
 
-  saveCustomer(recordType: string, attributes: Record<string, unknown>) {
-    return this.post<Customer>('/api/customers', { recordType, attributes });
+  saveCustomer(recordType: string, attributes: Record<string, unknown>, id?: string) {
+    return this.post<Customer>('/api/customers', { id, recordType, attributes });
   }
 
   exportCustomers(query: {

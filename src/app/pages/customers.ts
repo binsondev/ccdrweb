@@ -701,7 +701,7 @@ export class CustomersPage {
       const raw = row.attributes[attr.code];
       attributes[attr.code] = raw == null ? '' : String(raw);
     }
-    void this.store.create(row.recordType, attributes).then((ok) => {
+    void this.store.create(row.recordType, attributes, row.id).then((ok) => {
       if (!ok) return;
       const updated = this.store.customers().find((customer) => customer.id === row.id) ?? row;
       this.editingRecord.set(false);
