@@ -71,7 +71,8 @@ import { StatusBanner } from '../shared/status-banner';
               <div>
                 <h2 hlmCardTitle>{{ profile()!.name }}</h2>
                 <p hlmCardDescription>
-                  {{ profile()!.description || 'No description.' }}
+                  Record type {{ profile()!.recordType }}.
+                  {{ profile()!.description || 'This mapper cannot mix another type in the same Excel.' }}
                 </p>
               </div>
               <div class="flex flex-wrap gap-1">

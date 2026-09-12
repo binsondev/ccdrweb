@@ -1,6 +1,6 @@
 # CCDR frontend
 
-Angular 22 SPA for the Central Customer Data Repository. Tenant admins define attributes; customers are bags of those values; Excel mappings and uploads never guess column order.
+Angular 22 SPA for the Central Customer Data Repository. Tenant Admin defines **record types**, then attributes and one Excel mapper per type. Customers are bags of those values. Search can omit type. Match keys never cross types.
 
 The UI is zoneless and signal-based (Angular signals, Signal Forms, NgRx Signal Store). Components use [Spartan UI](https://www.spartan.ng/) Helm primitives.
 

@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { Api, apiMessage } from './api';
-import { AttributeDefinition, MappingBindingDraft, MappingProfile, MappingVersion } from './models';
+import { AttributeDefinition, MappingBindingDraft, MappingProfile, MappingVersion, RecordType } from './models';
 
 type MappingsState = {
   loading: boolean;
@@ -10,6 +10,8 @@ type MappingsState = {
   downloading: boolean;
   error: string | null;
   notice: string | null;
+  recordType: string;
+  recordTypes: RecordType[];
   profiles: MappingProfile[];
   attributes: AttributeDefinition[];
   detail: MappingProfile | null;
@@ -23,6 +25,8 @@ const initial: MappingsState = {
   downloading: false,
   error: null,
   notice: null,
+  recordType: '',
+  recordTypes: [],
   profiles: [],
   attributes: [],
   detail: null,
@@ -36,9 +40,20 @@ export const MappingsStore = signalStore(
     const load = async () => {
       patchState(store, { loading: true, error: null });
       try {
-        const [profiles, catalog] = await Promise.all([api.mappingProfiles(), api.attributes()]);
+        const types = await api.recordTypes();
+        const active = types.recordTypes.filter((type) => type.active);
+        let recordType = store.recordType();
+        if (!recordType || !active.some((type) => type.code === recordType)) {
+          recordType = active[0]?.code ?? '';
+        }
+        const [profiles, catalog] = await Promise.all([
+          api.mappingProfiles(recordType || undefined),
+          recordType ? api.attributes(recordType) : Promise.resolve({ attributes: [] as AttributeDefinition[] }),
+        ]);
         patchState(store, {
           loading: false,
+          recordType,
+          recordTypes: types.recordTypes,
           profiles: profiles.profiles,
           attributes: catalog.attributes,
         });
@@ -52,11 +67,11 @@ export const MappingsStore = signalStore(
     const loadDetail = async (id: string) => {
       patchState(store, { detailLoading: true, error: null });
       try {
-        const [detail, versions, catalog] = await Promise.all([
+        const [detail, versions] = await Promise.all([
           api.mappingProfile(id),
           api.mappingVersions(id),
-          api.attributes(),
         ]);
+        const catalog = await api.attributes(detail.recordType);
         patchState(store, {
           detailLoading: false,
           detail,
@@ -73,10 +88,15 @@ export const MappingsStore = signalStore(
     return {
       load,
       loadDetail,
+      setRecordType(recordType: string) {
+        patchState(store, { recordType });
+        return load();
+      },
       clearDetail() {
         patchState(store, { detail: null, versions: [] });
       },
       async create(body: {
+        recordType: string;
         name: string;
         headerRowIndex: number;
         ignoreUnmappedColumns: boolean;

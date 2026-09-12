@@ -153,7 +153,10 @@ export class Shell {
       });
       groups.push({
         label: 'Catalog',
-        items: [{ path: '/app/attributes', label: 'Attributes', hint: 'Define the shape' }],
+        items: [
+          { path: '/app/record-types', label: 'Record types', hint: 'Patient, vendor, …' },
+          { path: '/app/attributes', label: 'Attributes', hint: 'Per record type' },
+        ],
       });
       const intake: { path: string; label: string; hint: string }[] = [];
       if (this.auth.canMappings()) {
@@ -189,11 +192,18 @@ export class Shell {
 
   private meta() {
     const url = this.url();
+    if (url.includes('/record-types')) {
+      return {
+        kicker: 'Catalog',
+        title: 'Record types',
+        blurb: 'Tenant Admin defines the kinds of records this workspace stores. Start empty.',
+      };
+    }
     if (url.includes('/attributes')) {
       return {
         kicker: 'Catalog',
         title: 'Attributes',
-        blurb: 'There is no fixed Customer class. These fields are the record.',
+        blurb: 'Each field belongs to one record type. Codes are unique within that type.',
       };
     }
     if (url.includes('/mappings/')) {
@@ -207,7 +217,7 @@ export class Shell {
       return {
         kicker: 'Intake',
         title: 'Excel mappings',
-        blurb: 'Map headers to catalog codes. Column order is never guessed.',
+        blurb: 'One mapper per record type. An Excel does not mix Patient and Vendor.',
       };
     }
     if (url.includes('/uploads')) {
@@ -241,7 +251,7 @@ export class Shell {
     return {
       kicker: 'Records',
       title: 'Customer search',
-      blurb: 'Search any value, or narrow the list with catalog filters.',
+        blurb: 'Record type is optional. Filters and match keys stay scoped to each type.',
     };
   }
 }

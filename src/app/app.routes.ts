@@ -58,6 +58,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/customers').then((m) => m.CustomersPage),
       },
       {
+        path: 'record-types',
+        canActivate: [tenantGuard],
+        loadComponent: () => import('./pages/record-types').then((m) => m.RecordTypesPage),
+      },
+      {
         path: 'attributes',
         canActivate: [tenantGuard],
         loadComponent: () => import('./pages/attributes').then((m) => m.AttributesPage),

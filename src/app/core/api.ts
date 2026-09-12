@@ -18,6 +18,8 @@ import type {
   Member,
   MyTenantsResponse,
   PlatformTenant,
+  RecordType,
+  RecordTypeListResponse,
   SettingsResponse,
   UploadBatch,
 } from './models';
@@ -54,11 +56,29 @@ export class Api {
     return this.delete(`/api/members/${id}`);
   }
 
-  attributes() {
-    return this.get<AttributeListResponse>('/api/attributes');
+  recordTypes() {
+    return this.get<RecordTypeListResponse>('/api/record-types');
+  }
+
+  createRecordType(body: { code: string; label: string; description?: string | null; active?: boolean }) {
+    return this.post<RecordType>('/api/record-types', { active: true, ...body });
+  }
+
+  updateRecordType(
+    code: string,
+    body: { label: string; description?: string | null; active: boolean },
+  ) {
+    return this.put<RecordType>(`/api/record-types/${code}`, { code, ...body });
+  }
+
+  attributes(recordType?: string | null) {
+    let params = new HttpParams();
+    if (recordType) params = params.set('recordType', recordType);
+    return this.get<AttributeListResponse>('/api/attributes', params);
   }
 
   createAttribute(body: {
+    recordType: string;
     code: string;
     label: string;
     group?: string | null;
@@ -75,6 +95,7 @@ export class Api {
   }
 
   updateAttribute(
+    recordType: string,
     code: string,
     body: Partial<{
       label: string;
@@ -88,18 +109,22 @@ export class Api {
       helpText: string | null;
     }>,
   ) {
-    return this.put<AttributeDefinition>(`/api/attributes/${code}`, body);
+    return this.put<AttributeDefinition>(`/api/attributes/${recordType}/${code}`, { recordType, code, ...body });
   }
 
-  filterableAttributes() {
-    return this.get<{ tenant: string; attributes: FilterableAttribute[] }>(
+  filterableAttributes(recordType?: string | null) {
+    let params = new HttpParams();
+    if (recordType) params = params.set('recordType', recordType);
+    return this.get<{ tenant: string; recordType: string | null; attributes: FilterableAttribute[] }>(
       '/api/customers/filterable-attributes',
+      params,
     );
   }
 
-  customers(query: { q?: string; filter?: string[]; offset?: number; limit?: number }) {
+  customers(query: { q?: string; recordType?: string | null; filter?: string[]; offset?: number; limit?: number }) {
     let params = new HttpParams();
     if (query.q) params = params.set('q', query.q);
+    if (query.recordType) params = params.set('recordType', query.recordType);
     for (const filter of query.filter ?? []) {
       params = params.append('filter', filter);
     }
@@ -108,12 +133,14 @@ export class Api {
     return this.get<CustomerListResponse>('/api/customers', params);
   }
 
-  saveCustomer(attributes: Record<string, unknown>) {
-    return this.post<Customer>('/api/customers', { attributes });
+  saveCustomer(recordType: string, attributes: Record<string, unknown>) {
+    return this.post<Customer>('/api/customers', { recordType, attributes });
   }
 
-  mappingProfiles() {
-    return this.get<MappingProfileListResponse>('/api/mapping-profiles');
+  mappingProfiles(recordType?: string | null) {
+    let params = new HttpParams();
+    if (recordType) params = params.set('recordType', recordType);
+    return this.get<MappingProfileListResponse>('/api/mapping-profiles', params);
   }
 
   mappingProfile(id: string) {
@@ -127,6 +154,7 @@ export class Api {
   }
 
   createMappingProfile(body: {
+    recordType: string;
     name: string;
     description?: string;
     headerRowIndex: number;

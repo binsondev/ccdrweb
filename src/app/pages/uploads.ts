@@ -26,7 +26,9 @@ import { StatusBanner } from '../shared/status-banner';
               <select hlmInput name="mappingProfileId" required>
                 <option value="">Activated mapping</option>
                 @for (profile of activated(); track profile.id) {
-                  <option [value]="profile.id">{{ profile.name }} (v{{ profile.current.versionNumber }})</option>
+                  <option [value]="profile.id">
+                    {{ profile.name }} · {{ profile.recordType }} (v{{ profile.current.versionNumber }})
+                  </option>
                 }
               </select>
               <input hlmInput type="file" name="file" accept=".xlsx" required />

@@ -1,7 +1,7 @@
 import { computed, inject } from '@angular/core';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { Api, apiMessage } from './api';
-import { AttributeDefinition, Customer, FilterableAttribute } from './models';
+import { AttributeDefinition, Customer, FilterableAttribute, RecordType } from './models';
 import { operatorLabel } from './format';
 
 export type TextDraft = { op: string; value: string };
@@ -20,6 +20,8 @@ type CustomersState = {
   error: string | null;
   notice: string | null;
   q: string;
+  recordType: string;
+  recordTypes: RecordType[];
   text: Record<string, TextDraft>;
   options: Record<string, string[]>;
   min: Record<string, string>;
@@ -38,6 +40,8 @@ const initial: CustomersState = {
   error: null,
   notice: null,
   q: '',
+  recordType: '',
+  recordTypes: [],
   text: {},
   options: {},
   min: {},
@@ -90,7 +94,7 @@ export const CustomersStore = signalStore(
         const text = store.text()[attr.code];
         if (text?.value.trim()) {
           items.push({
-            id: `text:${attr.code}`,
+            id: `text:${attr.recordType}:${attr.code}`,
             kind: 'text',
             code: attr.code,
             label: `${attr.label} ${operatorLabel(text.op)} “${text.value.trim()}”`,
@@ -98,7 +102,7 @@ export const CustomersStore = signalStore(
         }
         for (const value of store.options()[attr.code] ?? []) {
           items.push({
-            id: `opt:${attr.code}:${value}`,
+            id: `opt:${attr.recordType}:${attr.code}:${value}`,
             kind: 'opt',
             code: attr.code,
             extra: value,
@@ -108,7 +112,7 @@ export const CustomersStore = signalStore(
         const min = store.min()[attr.code];
         if (min) {
           items.push({
-            id: `min:${attr.code}`,
+            id: `min:${attr.recordType}:${attr.code}`,
             kind: 'min',
             code: attr.code,
             label: `${attr.label} ≥ ${min}`,
@@ -117,7 +121,7 @@ export const CustomersStore = signalStore(
         const max = store.max()[attr.code];
         if (max) {
           items.push({
-            id: `max:${attr.code}`,
+            id: `max:${attr.recordType}:${attr.code}`,
             kind: 'max',
             code: attr.code,
             label: `${attr.label} ≤ ${max}`,
@@ -126,7 +130,7 @@ export const CustomersStore = signalStore(
         const bool = store.bools()[attr.code];
         if (bool) {
           items.push({
-            id: `bool:${attr.code}`,
+            id: `bool:${attr.recordType}:${attr.code}`,
             kind: 'bool',
             code: attr.code,
             label: `${attr.label}: ${bool === 'true' ? 'Yes' : 'No'}`,
@@ -136,14 +140,23 @@ export const CustomersStore = signalStore(
       return items;
     }),
     groups: computed(() => {
+      if (!store.recordType()) {
+        const names = store.filterable().map((attr) => attr.recordType || 'Other');
+        return [...new Set(names)];
+      }
       const names = store.filterable().map((attr) => attr.group?.trim() || 'Other');
       return [...new Set(names)];
+    }),
+    typeLabel: computed(() => {
+      const byCode = new Map(store.recordTypes().map((type) => [type.code, type.label]));
+      return (code: string) => byCode.get(code) ?? code;
     }),
   })),
   withMethods((store, api = inject(Api)) => {
     const load = async () => {
       patchState(store, { loading: true, error: null });
       try {
+        const recordType = store.recordType() || undefined;
         const filter = serialize({
           text: store.text(),
           options: store.options(),
@@ -151,15 +164,23 @@ export const CustomersStore = signalStore(
           max: store.max(),
           bools: store.bools(),
         });
-        const [catalog, filterable, list] = await Promise.all([
+        const [types, catalog, filterable, list] = await Promise.all([
+          api.recordTypes(),
           api.attributes(),
-          api.filterableAttributes(),
-          api.customers({ q: store.q() || undefined, filter, limit: 100 }),
+          api.filterableAttributes(recordType),
+          api.customers({ q: store.q() || undefined, recordType, filter, limit: 100 }),
         ]);
+        const scoped = recordType
+          ? catalog.attributes.filter((attr) => attr.recordType === recordType)
+          : catalog.attributes;
+        const hasMatchKey = scoped.some((attr) => attr.active && attr.matchKey);
         patchState(store, {
           loading: false,
+          recordTypes: types.recordTypes,
           attributes: catalog.attributes,
-          matchKeyWarning: catalog.matchKeyWarning,
+          matchKeyWarning: recordType && !hasMatchKey
+            ? `At least one match-key attribute is recommended on '${recordType}' so later uploads can update existing records.`
+            : null,
           filterable: filterable.attributes,
           customers: list.customers,
           count: list.count,
@@ -174,6 +195,17 @@ export const CustomersStore = signalStore(
     return {
       setSearch(q: string) {
         patchState(store, { q });
+      },
+      setRecordType(recordType: string) {
+        patchState(store, {
+          recordType,
+          text: {},
+          options: {},
+          min: {},
+          max: {},
+          bools: {},
+        });
+        return load();
       },
       setTextOp(code: string, op: string) {
         patchState(store, {
@@ -237,13 +269,13 @@ export const CustomersStore = signalStore(
         patchState(store, { q: '', text: {}, options: {}, min: {}, max: {}, bools: {} });
       },
       load,
-      async create(attributes: Record<string, unknown>) {
+      async create(recordType: string, attributes: Record<string, unknown>) {
         patchState(store, { saving: true, error: null, notice: null });
         try {
-          const saved = await api.saveCustomer(attributes);
+          const saved = await api.saveCustomer(recordType, attributes);
           patchState(store, {
             saving: false,
-            notice: saved.outcome === 'updated' ? 'Existing customer updated.' : 'Customer created.',
+            notice: saved.outcome === 'updated' ? 'Existing record updated.' : 'Record created.',
           });
           return load();
         } catch (err) {

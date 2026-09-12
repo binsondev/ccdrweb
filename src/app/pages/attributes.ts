@@ -8,6 +8,7 @@ import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmLabel } from '@spartan-ng/helm/label';
 import { HlmTableImports } from '@spartan-ng/helm/table';
+import { RouterLink } from '@angular/router';
 import { AttributesStore } from '../core/attributes.store';
 import { AuthStore } from '../core/auth.store';
 import { DATA_TYPES, DataType } from '../core/models';
@@ -17,6 +18,7 @@ import { StatusBanner } from '../shared/status-banner';
   selector: 'ccdr-attributes',
   imports: [
     FormField,
+    RouterLink,
     HlmBadge,
     HlmButton,
     HlmCheckbox,
@@ -31,6 +33,36 @@ import { StatusBanner } from '../shared/status-banner';
     <div class="grid gap-6">
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
+      <label class="grid max-w-xs gap-1.5 text-sm font-medium">
+        Record type
+        <select
+          hlmInput
+          [value]="store.recordType()"
+          [disabled]="!store.recordTypes().length"
+          (change)="onType($event)"
+        >
+          @if (!store.recordTypes().length) {
+            <option value="">No record types yet</option>
+          }
+          @for (type of store.recordTypes(); track type.code) {
+            <option [value]="type.code">{{ type.label }}</option>
+          }
+        </select>
+      </label>
+
+      @if (!store.loading() && !store.recordTypes().length) {
+        <div hlmAlert>
+          <p hlmAlertTitle>Create a record type first</p>
+          <p hlmAlertDescription>
+            Attributes belong to one type and are not shared.
+            <a routerLink="/app/record-types" class="text-foreground underline-offset-4 hover:underline">
+              Add a record type
+            </a>
+            as Tenant Admin.
+          </p>
+        </div>
+      }
+
       @if (store.matchKeyWarning()) {
         <div hlmAlert>
           <p hlmAlertTitle>Match key</p>
@@ -40,9 +72,9 @@ import { StatusBanner } from '../shared/status-banner';
 
       @if (store.loading()) {
         <p class="text-muted-foreground text-sm">Loading catalog…</p>
-      } @else if (!store.attributes().length) {
+      } @else if (store.recordType() && !store.attributes().length) {
         <p class="text-muted-foreground text-sm">
-          No attributes yet. Add a match-key field before you import customers.
+          No attributes on this record type yet. Add a match-key field before you import records.
         </p>
       } @else {
         @for (group of groups(); track group) {
@@ -103,11 +135,11 @@ import { StatusBanner } from '../shared/status-banner';
         }
       }
 
-      @if (auth.canCatalogWrite()) {
+      @if (auth.canCatalogWrite() && store.recordType()) {
         <section hlmCard class="max-w-3xl">
           <div hlmCardHeader>
             <h2 hlmCardTitle>Add attribute</h2>
-            <p hlmCardDescription>Code cannot change after save.</p>
+            <p hlmCardDescription>Code cannot change after save. It is unique on this record type only.</p>
           </div>
           <div hlmCardContent>
             <form class="grid gap-3 md:grid-cols-2" (submit)="onCreate($event)">
@@ -193,6 +225,10 @@ export class AttributesPage {
 
   protected byGroup(group: string) {
     return this.store.attributes().filter((attr) => (attr.group?.trim() || 'Ungrouped') === group);
+  }
+
+  protected onType(event: Event) {
+    void this.store.setRecordType((event.target as HTMLSelectElement).value);
   }
 
   protected onCreate(event: Event) {
