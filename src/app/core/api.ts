@@ -123,6 +123,10 @@ export class Api {
   }
 
   customers(query: { q?: string; recordType?: string | null; filter?: string[]; offset?: number; limit?: number }) {
+    return firstValueFrom(this.customers$(query));
+  }
+
+  customers$(query: { q?: string; recordType?: string | null; filter?: string[]; offset?: number; limit?: number }) {
     let params = new HttpParams();
     if (query.q) params = params.set('q', query.q);
     if (query.recordType) params = params.set('recordType', query.recordType);
@@ -131,7 +135,7 @@ export class Api {
     }
     if (query.offset != null) params = params.set('offset', String(query.offset));
     if (query.limit != null) params = params.set('limit', String(query.limit));
-    return this.get<CustomerListResponse>('/api/customers', params);
+    return this.http.get<CustomerListResponse>('/api/customers', { params });
   }
 
   saveCustomer(recordType: string, attributes: Record<string, unknown>) {

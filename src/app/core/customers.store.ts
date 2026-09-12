@@ -1,7 +1,9 @@
 import { computed, inject } from '@angular/core';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
+import { rxMethod } from '@ngrx/signals/rxjs-interop';
+import { catchError, debounceTime, distinctUntilChanged, EMPTY, of, pipe, skip, switchMap, tap } from 'rxjs';
 import { Api, apiMessage } from './api';
-import { AttributeDefinition, Customer, FilterableAttribute, RecordType } from './models';
+import { AttributeDefinition, Customer, CustomerListResponse, FilterableAttribute, RecordType } from './models';
 import { operatorLabel } from './format';
 
 export type TextDraft = { op: string; value: string };
@@ -13,6 +15,21 @@ export type FilterChip = {
   extra?: string;
   label: string;
 };
+
+export type SearchCriteria = {
+  q: string;
+  recordType: string;
+  filter: string[];
+};
+
+function sameCriteria(left: SearchCriteria, right: SearchCriteria) {
+  return (
+    left.q === right.q &&
+    left.recordType === right.recordType &&
+    left.filter.length === right.filter.length &&
+    left.filter.every((item, index) => item === right.filter[index])
+  );
+}
 
 type CustomersState = {
   loading: boolean;
@@ -161,6 +178,19 @@ export const CustomersStore = signalStore(
     to: computed(() => Math.min(store.offset() + store.customers().length, store.count())),
     hasPrev: computed(() => store.offset() > 0),
     hasNext: computed(() => store.offset() + store.limit() < store.count()),
+    searchCriteria: computed(
+      (): SearchCriteria => ({
+        q: store.q(),
+        recordType: store.recordType(),
+        filter: serialize({
+          text: store.text(),
+          options: store.options(),
+          min: store.min(),
+          max: store.max(),
+          bools: store.bools(),
+        }),
+      }),
+    ),
   })),
   withMethods((store, api = inject(Api)) => {
     const query = () =>
@@ -172,36 +202,64 @@ export const CustomersStore = signalStore(
         bools: store.bools(),
       });
 
-    const search = async (): Promise<boolean> => {
-      patchState(store, { loading: true, error: null });
-      try {
-        const recordType = store.recordType() || undefined;
-        const list = await api.customers({
-          q: store.q() || undefined,
-          recordType,
-          filter: query(),
-          offset: store.offset(),
-          limit: store.limit(),
-        });
-        const lastOffset =
-          list.count > 0 ? Math.floor((list.count - 1) / list.limit) * list.limit : 0;
-        if (list.offset > lastOffset) {
-          patchState(store, { offset: lastOffset, count: list.count, limit: list.limit });
-          return search();
-        }
-        patchState(store, {
-          loading: false,
-          customers: list.customers,
-          count: list.count,
-          offset: list.offset,
-          limit: list.limit,
-        });
-        return true;
-      } catch (err) {
-        patchState(store, { loading: false, error: apiMessage(err) });
-        return false;
-      }
+    const applyList = (list: CustomerListResponse) => {
+      patchState(store, {
+        loading: false,
+        customers: list.customers,
+        count: list.count,
+        offset: list.offset,
+        limit: list.limit,
+      });
     };
+
+    const fetchCustomers = (criteria: SearchCriteria) => {
+      const req = {
+        q: criteria.q || undefined,
+        recordType: criteria.recordType || undefined,
+        filter: criteria.filter,
+        offset: store.offset(),
+        limit: store.limit(),
+      };
+      return api.customers$(req).pipe(
+        switchMap((list) => {
+          const lastOffset =
+            list.count > 0 ? Math.floor((list.count - 1) / list.limit) * list.limit : 0;
+          if (list.offset > lastOffset) {
+            patchState(store, { offset: lastOffset });
+            return api.customers$({ ...req, offset: lastOffset });
+          }
+          return of(list);
+        }),
+        tap({
+          next: applyList,
+          error: (err) => patchState(store, { loading: false, error: apiMessage(err) }),
+        }),
+        catchError(() => EMPTY),
+      );
+    };
+
+    const search = rxMethod<SearchCriteria>(
+      pipe(
+        skip(1),
+        debounceTime(2000),
+        distinctUntilChanged(sameCriteria),
+        tap(() => patchState(store, { loading: true, error: null })),
+        switchMap((criteria) => fetchCustomers(criteria)),
+      ),
+    );
+
+    const searchNow = rxMethod<void>(
+      pipe(
+        tap(() => patchState(store, { loading: true, error: null })),
+        switchMap(() =>
+          fetchCustomers({
+            q: store.q(),
+            recordType: store.recordType(),
+            filter: query(),
+          }),
+        ),
+      ),
+    );
 
     const catalogPatch = (
       types: { recordTypes: RecordType[] },
@@ -278,6 +336,7 @@ export const CustomersStore = signalStore(
         patchState(store, { q, offset: 0 });
       },
       search,
+      searchNow,
       setRecordType(recordType: string) {
         patchState(store, {
           recordType,
@@ -357,22 +416,22 @@ export const CustomersStore = signalStore(
       goToPage(page: number) {
         const next = Math.min(Math.max(1, page), store.pageCount());
         patchState(store, { offset: (next - 1) * store.limit() });
-        return search();
+        searchNow(undefined);
       },
       nextPage() {
-        if (!store.hasNext()) return Promise.resolve(false);
+        if (!store.hasNext()) return;
         patchState(store, { offset: store.offset() + store.limit() });
-        return search();
+        searchNow(undefined);
       },
       prevPage() {
-        if (!store.hasPrev()) return Promise.resolve(false);
+        if (!store.hasPrev()) return;
         patchState(store, { offset: Math.max(0, store.offset() - store.limit()) });
-        return search();
+        searchNow(undefined);
       },
       setLimit(size: number) {
         const next = Math.min(200, Math.max(1, size));
         patchState(store, { limit: next, offset: 0 });
-        return search();
+        searchNow(undefined);
       },
       load,
       async create(recordType: string, attributes: Record<string, unknown>) {
