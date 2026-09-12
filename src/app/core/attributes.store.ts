@@ -138,7 +138,15 @@ export const AttributesStore = signalStore(
         }
         patchState(store, { saving: true, error: null, notice: null });
         try {
-          await api.createAttribute({ ...body, recordType });
+          await api.createAttribute({
+            ...body,
+            recordType,
+            options: body.options?.map((option, index) => ({
+              value: option.value,
+              label: option.label,
+              sortOrder: option.sortOrder ?? (index + 1) * 10,
+            })),
+          });
           patchState(store, { saving: false, notice: `Attribute ${body.code} created.` });
           return load();
         } catch (err) {

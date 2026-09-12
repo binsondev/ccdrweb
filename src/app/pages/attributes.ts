@@ -198,12 +198,11 @@ const emptyDraft = (): AttributeDraft => ({
             <form class="grid gap-3 md:grid-cols-2" (submit)="onSave($event)">
               <label class="grid gap-1.5 text-sm font-medium">
                 Code
-                <input
-                  hlmInput
-                  [formField]="draftForm.code"
-                  [readonly]="!!editingCode()"
-                  placeholder="phone"
-                />
+                @if (editingCode()) {
+                  <input hlmInput [value]="model().code" readonly />
+                } @else {
+                  <input hlmInput [formField]="draftForm.code" placeholder="phone" />
+                }
               </label>
               <label class="grid gap-1.5 text-sm font-medium">
                 Label
@@ -215,11 +214,15 @@ const emptyDraft = (): AttributeDraft => ({
               </label>
               <label class="grid gap-1.5 text-sm font-medium">
                 Data type
-                <select hlmInput [formField]="draftForm.dataType" [disabled]="!!editingCode()" (change)="onDataType()">
-                  @for (type of types; track type) {
-                    <option [value]="type">{{ type }}</option>
-                  }
-                </select>
+                @if (editingCode()) {
+                  <input hlmInput [value]="model().dataType" readonly />
+                } @else {
+                  <select hlmInput [formField]="draftForm.dataType" (change)="onDataType()">
+                    @for (type of types; track type) {
+                      <option [value]="type">{{ type }}</option>
+                    }
+                  </select>
+                }
               </label>
               <label class="grid gap-1.5 text-sm font-medium md:col-span-2">
                 Help text
