@@ -409,7 +409,7 @@ import { StatusBanner } from '../shared/status-banner';
         @if (editingRecord()) {
           <form class="grid flex-1 gap-3 overflow-y-auto px-6 pb-6" (submit)="onSaveRecord($event)">
             <p class="text-muted-foreground text-sm">
-              Keep the match key the same to update this record. Changing it creates a new bag.
+              Match-key fields stay locked so this save updates the same record.
             </p>
             @for (attr of attributesFor(row.recordType); track attr.code) {
               @if (attr.active) {
@@ -420,13 +420,14 @@ import { StatusBanner } from '../shared/status-banner';
                       <span class="text-destructive">*</span>
                     }
                     @if (attr.matchKey) {
-                      <span class="text-muted-foreground font-normal">(match key)</span>
+                      <span class="text-muted-foreground font-normal">(match key, locked)</span>
                     }
                   </span>
                   <input
                     hlmInput
                     [name]="attr.code"
                     [required]="attr.required"
+                    [readonly]="attr.matchKey"
                     [value]="editValue(attr.code)"
                     [placeholder]="attr.helpText || attr.code"
                     (input)="onEditValue(attr.code, $event)"
@@ -680,6 +681,9 @@ export class CustomersPage {
   }
 
   protected onEditValue(code: string, event: Event) {
+    const row = this.selected();
+    const locked = this.attributesFor(row?.recordType ?? '').some((attr) => attr.code === code && attr.matchKey);
+    if (locked) return;
     const value = (event.target as HTMLInputElement).value;
     this.editValues.update((current) => ({ ...current, [code]: value }));
   }
@@ -691,6 +695,11 @@ export class CustomersPage {
     const attributes: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(this.editValues())) {
       attributes[key] = value.trim();
+    }
+    for (const attr of this.attributesFor(row.recordType)) {
+      if (!attr.matchKey) continue;
+      const raw = row.attributes[attr.code];
+      attributes[attr.code] = raw == null ? '' : String(raw);
     }
     void this.store.create(row.recordType, attributes).then((ok) => {
       if (!ok) return;
