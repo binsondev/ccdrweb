@@ -6,10 +6,11 @@ import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
 import { MappingsStore } from '../core/mappings.store';
-import { emptyBindingDraft, MappingBindingDraft } from '../core/models';
+import { emptyBindingDraft, MappingBindingDraft, MappingPreviewRow } from '../core/models';
 import { MappingBindingsEditor } from '../shared/mapping-bindings';
 import { StatusBanner } from '../shared/status-banner';
 
@@ -19,6 +20,7 @@ import { StatusBanner } from '../shared/status-banner';
     RouterLink,
     HlmBadge,
     HlmButton,
+    HlmInput,
     StatusBanner,
     MappingBindingsEditor,
     ...HlmAlertImports,
@@ -195,6 +197,78 @@ import { StatusBanner } from '../shared/status-banner';
           }
         </section>
 
+        <section hlmCard>
+          <div hlmCardHeader class="border-border border-b">
+            <h2 hlmCardTitle>Preview 20 rows</h2>
+            <p hlmCardDescription>
+              Upload a sample workbook against this mapping. Nothing is staged or committed.
+            </p>
+          </div>
+          <div hlmCardContent class="grid gap-4 py-4">
+            <form class="flex flex-wrap items-end gap-3" (submit)="onPreview($event)">
+              <label class="grid min-w-56 flex-1 gap-1.5 text-sm font-medium">
+                Sample .xlsx
+                <input hlmInput type="file" name="file" accept=".xlsx" required />
+              </label>
+              <button hlmBtn type="submit" [disabled]="store.previewing() || !profile()!.current.bindings.length">
+                {{ store.previewing() ? 'Reading…' : 'Preview first 20 rows' }}
+              </button>
+            </form>
+            @if (store.preview(); as preview) {
+              @if (preview.missingHeaders.length) {
+                <p class="text-destructive text-sm">
+                  Mapping looks for {{ preview.missingHeaders.join(', ') }}, which is not in this workbook.
+                </p>
+              }
+              @if (preview.ignoredHeaders.length) {
+                <p class="text-muted-foreground text-sm">
+                  Unused columns: {{ preview.ignoredHeaders.join(', ') }}.
+                </p>
+              }
+              <div hlmTableContainer>
+                <table hlmTable>
+                  <thead hlmTHead>
+                    <tr hlmTr>
+                      <th hlmTh>Excel row</th>
+                      <th hlmTh>Status</th>
+                      @for (bind of profile()!.current.bindings; track bind.attributeCode) {
+                        <th hlmTh>{{ attributeLabel(bind.attributeCode) }}</th>
+                      }
+                      <th hlmTh>Messages</th>
+                    </tr>
+                  </thead>
+                  <tbody hlmTBody>
+                    @if (!preview.rows.length) {
+                      <tr hlmTr>
+                        <td hlmTd class="text-muted-foreground" [attr.colspan]="profile()!.current.bindings.length + 3">
+                          No data rows under that header.
+                        </td>
+                      </tr>
+                    } @else {
+                      @for (row of preview.rows; track row.excelRow) {
+                        <tr hlmTr>
+                          <td hlmTd>{{ row.excelRow }}</td>
+                          <td hlmTd>
+                            <span hlmBadge [variant]="row.status === 'Valid' ? 'default' : 'destructive'">
+                              {{ row.status }}
+                            </span>
+                          </td>
+                          @for (bind of profile()!.current.bindings; track bind.attributeCode) {
+                            <td hlmTd>{{ previewCell(row, bind.attributeCode) }}</td>
+                          }
+                          <td hlmTd class="text-muted-foreground text-xs">
+                            {{ row.messages.join(' ') || '—' }}
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </section>
+
         @if (store.versions().length) {
           <section hlmCard>
             <div hlmCardHeader class="border-border border-b">
@@ -295,6 +369,19 @@ export class MappingOverviewPage {
 
   protected attributeLabel(code: string) {
     return this.typedAttributes().find((attr) => attr.code === code)?.label ?? code;
+  }
+
+  protected previewCell(row: MappingPreviewRow, attributeCode: string) {
+    return row.cells.find((cell) => cell.attributeCode === attributeCode)?.value || '—';
+  }
+
+  protected onPreview(event: Event) {
+    event.preventDefault();
+    const id = this.id();
+    const form = event.target as HTMLFormElement;
+    const file = new FormData(form).get('file');
+    if (!id || !(file instanceof File) || !file.size) return;
+    void this.store.preview(id, file);
   }
 
   protected save() {

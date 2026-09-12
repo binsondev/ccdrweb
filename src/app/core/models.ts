@@ -219,6 +219,34 @@ export interface MappingProfileListResponse {
   profiles: MappingProfile[];
 }
 
+export interface MappingPreviewCell {
+  attributeCode: string;
+  excelHeader: string;
+  value: string | null;
+  message: string | null;
+  raw?: string | null;
+}
+
+export interface MappingPreviewRow {
+  excelRow: number;
+  status: string;
+  cells: MappingPreviewCell[];
+  messages: string[];
+}
+
+export interface MappingPreview {
+  profileId: string;
+  versionId: string;
+  versionNumber: number;
+  activated: boolean;
+  sheetName: string;
+  headerRowIndex: number;
+  headers: string[];
+  ignoredHeaders: string[];
+  missingHeaders: string[];
+  rows: MappingPreviewRow[];
+}
+
 export interface StagedRowError {
   attributeCode: string | null;
   excelHeader: string | null;

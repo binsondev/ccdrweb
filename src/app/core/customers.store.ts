@@ -2,7 +2,7 @@ import { computed, inject } from '@angular/core';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { catchError, debounceTime, distinctUntilChanged, EMPTY, of, pipe, skip, switchMap, tap } from 'rxjs';
-import { Api, apiMessage } from './api';
+import { Api, apiMessage, saveBlob } from './api';
 import { AttributeDefinition, Customer, CustomerListResponse, FilterableAttribute, RecordType } from './models';
 import { operatorLabel } from './format';
 
@@ -51,6 +51,7 @@ type CustomersState = {
   attributes: AttributeDefinition[];
   filterable: FilterableAttribute[];
   matchKeyWarning: string | null;
+  exporting: boolean;
 };
 
 const initial: CustomersState = {
@@ -73,6 +74,7 @@ const initial: CustomersState = {
   attributes: [],
   filterable: [],
   matchKeyWarning: null,
+  exporting: false,
 };
 
 function serialize(state: {
@@ -434,6 +436,26 @@ export const CustomersStore = signalStore(
         searchNow(undefined);
       },
       load,
+      async exportResults(format: 'xlsx' | 'csv') {
+        patchState(store, { exporting: true, error: null, notice: null });
+        try {
+          const file = await api.exportCustomers({
+            q: store.q() || undefined,
+            recordType: store.recordType() || undefined,
+            filter: query(),
+            format,
+          });
+          saveBlob(file);
+          patchState(store, {
+            exporting: false,
+            notice: `Exported ${file.fileName}. This download is audited.`,
+          });
+          return true;
+        } catch (err) {
+          patchState(store, { exporting: false, error: apiMessage(err) });
+          return false;
+        }
+      },
       async create(recordType: string, attributes: Record<string, unknown>) {
         patchState(store, { saving: true, error: null, notice: null });
         try {

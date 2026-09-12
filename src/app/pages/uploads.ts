@@ -6,6 +6,7 @@ import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
 import { UploadsStore } from '../core/uploads.store';
+import { UploadBatch } from '../core/models';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
@@ -78,6 +79,17 @@ import { StatusBanner } from '../shared/status-banner';
               <button hlmBtn type="button" [disabled]="!batch.validRows" (click)="store.commit(batch.id)">
                 Commit {{ batch.validRows }} records
               </button>
+              @if (batch.invalidRows + batch.reviewRows > 0) {
+                <button
+                  hlmBtn
+                  variant="outline"
+                  type="button"
+                  [disabled]="store.downloading()"
+                  (click)="store.downloadErrors(batch.id)"
+                >
+                  {{ store.downloading() ? 'Downloading…' : 'Download error workbook' }}
+                </button>
+              }
               <button hlmBtn variant="ghost" type="button" (click)="store.cancel(batch.id)">Cancel</button>
             </div>
           </aside>
@@ -157,6 +169,18 @@ import { StatusBanner } from '../shared/status-banner';
                       <td hlmTd>{{ batch.validRows }} / {{ batch.invalidRows }}</td>
                       <td hlmTd>
                         <div class="flex gap-2">
+                          @if (canDownloadErrors(batch)) {
+                            <button
+                              hlmBtn
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              [disabled]="store.downloading()"
+                              (click)="store.downloadErrors(batch.id)"
+                            >
+                              Errors
+                            </button>
+                          }
                           @if (batch.status === 'Staged') {
                             <button hlmBtn size="sm" type="button" (click)="store.commit(batch.id)">
                               Commit
@@ -195,6 +219,14 @@ export class UploadsPage {
         void this.store.load();
       }
     });
+  }
+
+  protected canDownloadErrors(batch: UploadBatch) {
+    return (
+      batch.status !== 'Received' &&
+      batch.status !== 'Parsing' &&
+      batch.invalidRows + batch.reviewRows > 0
+    );
   }
 
   protected onUpload(event: Event) {

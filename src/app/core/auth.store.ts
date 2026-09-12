@@ -70,6 +70,10 @@ export const AuthStore = signalStore(
       const role = store.tenants().find((tenant) => tenant.tenant === store.tenantSlug())?.role;
       return role === 'TenantAdmin' || role === 'Uploader';
     }),
+    canExport: computed(() => {
+      const membership = store.tenants().find((tenant) => tenant.tenant === store.tenantSlug());
+      return !!membership && (membership.exportGranted || membership.role === 'TenantAdmin');
+    }),
     canSettingsWrite: computed(() => {
       const role = store.tenants().find((tenant) => tenant.tenant === store.tenantSlug())?.role;
       return role === 'TenantAdmin';

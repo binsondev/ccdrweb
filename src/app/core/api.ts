@@ -11,6 +11,7 @@ import type {
   DataType,
   DevTokenResponse,
   FilterableAttribute,
+  MappingPreview,
   MappingProfile,
   MappingProfileListResponse,
   MappingVersion,
@@ -142,6 +143,21 @@ export class Api {
     return this.post<Customer>('/api/customers', { recordType, attributes });
   }
 
+  exportCustomers(query: {
+    q?: string;
+    recordType?: string | null;
+    filter?: string[];
+    format: 'xlsx' | 'csv';
+  }) {
+    let params = new HttpParams().set('format', query.format);
+    if (query.q) params = params.set('q', query.q);
+    if (query.recordType) params = params.set('recordType', query.recordType);
+    for (const filter of query.filter ?? []) {
+      params = params.append('filter', filter);
+    }
+    return this.download('/api/customers/export', params, `customers.${query.format}`);
+  }
+
   mappingProfiles(recordType?: string | null) {
     let params = new HttpParams();
     if (recordType) params = params.set('recordType', recordType);
@@ -203,21 +219,15 @@ export class Api {
     return this.post<MappingProfile>(`/api/mapping-profiles/${id}/clone`, name ? { name } : {});
   }
 
-  async downloadMappingTemplate(id: string) {
-    const response = await firstValueFrom(
-      this.http.get(`/api/mapping-profiles/${id}/template.xlsx`, {
-        observe: 'response',
-        responseType: 'blob',
-      }),
-    );
-    const blob = response.body;
-    if (!blob || blob.size === 0) {
-      throw new Error('The mapping template was empty.');
-    }
-    return {
-      blob,
-      fileName: fileNameFromDisposition(response.headers.get('content-disposition')) ?? 'mapping-template.xlsx',
-    };
+  downloadMappingTemplate(id: string) {
+    return this.download(`/api/mapping-profiles/${id}/template.xlsx`, undefined, 'mapping-template.xlsx');
+  }
+
+  previewMapping(id: string, file: File, versionId?: string) {
+    const data = new FormData();
+    data.set('File', file, file.name);
+    if (versionId) data.set('VersionId', versionId);
+    return firstValueFrom(this.http.post<MappingPreview>(`/api/mapping-profiles/${id}/preview`, data));
   }
 
   uploads() {
@@ -248,6 +258,10 @@ export class Api {
 
   cancelUpload(batchId: string) {
     return this.post<UploadBatch>(`/api/uploads/${batchId}/cancel`, {});
+  }
+
+  downloadUploadErrors(batchId: string) {
+    return this.download(`/api/uploads/${batchId}/errors.xlsx`, undefined, 'upload-errors.xlsx');
   }
 
   settings() {
@@ -285,6 +299,29 @@ export class Api {
   private delete(url: string) {
     return firstValueFrom(this.http.delete(url));
   }
+
+  private async download(url: string, params?: HttpParams, fallbackName = 'download') {
+    const response = await firstValueFrom(
+      this.http.get(url, { params, observe: 'response', responseType: 'blob' }),
+    );
+    const blob = response.body;
+    if (!blob || blob.size === 0) {
+      throw new Error('The download was empty.');
+    }
+    return {
+      blob,
+      fileName: fileNameFromDisposition(response.headers.get('content-disposition')) ?? fallbackName,
+    };
+  }
+}
+
+export function saveBlob(file: { blob: Blob; fileName: string }) {
+  const url = URL.createObjectURL(file.blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function fileNameFromDisposition(header: string | null) {

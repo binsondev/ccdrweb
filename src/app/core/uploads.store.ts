@@ -1,11 +1,12 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
-import { Api, apiMessage } from './api';
+import { Api, apiMessage, saveBlob } from './api';
 import { MappingProfile, StagedRow, UploadBatch } from './models';
 
 type UploadsState = {
   loading: boolean;
   saving: boolean;
+  downloading: boolean;
   error: string | null;
   notice: string | null;
   batches: UploadBatch[];
@@ -16,6 +17,7 @@ type UploadsState = {
 const initial: UploadsState = {
   loading: false,
   saving: false,
+  downloading: false,
   error: null,
   notice: null,
   batches: [],
@@ -80,6 +82,18 @@ export const UploadsStore = signalStore(
           return load();
         } catch (err) {
           patchState(store, { error: apiMessage(err) });
+          return false;
+        }
+      },
+      async downloadErrors(id: string) {
+        patchState(store, { downloading: true, error: null, notice: null });
+        try {
+          const file = await api.downloadUploadErrors(id);
+          saveBlob(file);
+          patchState(store, { downloading: false, notice: `Downloaded ${file.fileName}.` });
+          return true;
+        } catch (err) {
+          patchState(store, { downloading: false, error: apiMessage(err) });
           return false;
         }
       },

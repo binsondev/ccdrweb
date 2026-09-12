@@ -1,7 +1,14 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
-import { Api, apiMessage } from './api';
-import { AttributeDefinition, MappingBindingDraft, MappingProfile, MappingVersion, RecordType } from './models';
+import { Api, apiMessage, saveBlob } from './api';
+import {
+  AttributeDefinition,
+  MappingBindingDraft,
+  MappingPreview,
+  MappingProfile,
+  MappingVersion,
+  RecordType,
+} from './models';
 
 type MappingsState = {
   loading: boolean;
@@ -16,6 +23,8 @@ type MappingsState = {
   attributes: AttributeDefinition[];
   detail: MappingProfile | null;
   versions: MappingVersion[];
+  previewing: boolean;
+  preview: MappingPreview | null;
 };
 
 const initial: MappingsState = {
@@ -31,6 +40,8 @@ const initial: MappingsState = {
   attributes: [],
   detail: null,
   versions: [],
+  previewing: false,
+  preview: null,
 };
 
 export const MappingsStore = signalStore(
@@ -164,18 +175,31 @@ export const MappingsStore = signalStore(
         patchState(store, { downloading: true, error: null, notice: null });
         try {
           const file = await api.downloadMappingTemplate(id);
-          const url = URL.createObjectURL(file.blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = file.fileName;
-          link.click();
-          URL.revokeObjectURL(url);
+          saveBlob(file);
           patchState(store, { downloading: false, notice: `Downloaded ${file.fileName}. Fill the header row, then upload.` });
           return true;
         } catch (err) {
           patchState(store, { downloading: false, error: apiMessage(err) });
           return false;
         }
+      },
+      async preview(id: string, file: File) {
+        patchState(store, { previewing: true, error: null, notice: null, preview: null });
+        try {
+          const preview = await api.previewMapping(id, file);
+          patchState(store, {
+            previewing: false,
+            preview,
+            notice: `Previewed ${preview.rows.length} mapped rows from ${file.name}.`,
+          });
+          return true;
+        } catch (err) {
+          patchState(store, { previewing: false, preview: null, error: apiMessage(err) });
+          return false;
+        }
+      },
+      clearPreview() {
+        patchState(store, { preview: null });
       },
       async clone(id: string) {
         patchState(store, { saving: true, error: null, notice: null });

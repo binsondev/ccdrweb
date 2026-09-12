@@ -256,13 +256,39 @@ import { StatusBanner } from '../shared/status-banner';
             </div>
           }
 
-          <p class="text-muted-foreground text-[11px] font-medium tracking-[0.14em] uppercase">
-            @if (store.count() === 0) {
-              0 records
-            } @else {
-              Showing {{ store.from() }}–{{ store.to() }} of {{ store.count() }}
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-muted-foreground text-[11px] font-medium tracking-[0.14em] uppercase">
+              @if (store.count() === 0) {
+                0 records
+              } @else {
+                Showing {{ store.from() }}–{{ store.to() }} of {{ store.count() }}
+              }
+            </p>
+            @if (auth.canExport()) {
+              <div class="flex flex-wrap gap-2">
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  [disabled]="store.exporting() || store.count() === 0"
+                  (click)="store.exportResults('xlsx')"
+                >
+                  {{ store.exporting() ? 'Exporting…' : 'Export Excel' }}
+                </button>
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  [disabled]="store.exporting() || store.count() === 0"
+                  (click)="store.exportResults('csv')"
+                >
+                  Export CSV
+                </button>
+              </div>
             }
-          </p>
+          </div>
 
           <section hlmCard>
             <div hlmCardContent class="p-0">
