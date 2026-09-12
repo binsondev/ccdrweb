@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -330,7 +330,7 @@ import { StatusBanner } from '../shared/status-banner';
                 size="sm"
                 type="button"
                 [disabled]="!store.hasPrev() || store.loading()"
-                (click)="store.prevPage()"
+                (click)="prevPage()"
               >
                 Previous
               </button>
@@ -343,7 +343,7 @@ import { StatusBanner } from '../shared/status-banner';
                 size="sm"
                 type="button"
                 [disabled]="!store.hasNext() || store.loading()"
-                (click)="store.nextPage()"
+                (click)="nextPage()"
               >
                 Next
               </button>
@@ -475,8 +475,10 @@ export class CustomersPage {
   });
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.searchTimer));
     effect(() => {
       if (this.auth.tenantSlug()) {
+        this.cancelScheduledSearch();
         void this.store.load();
       }
     });
@@ -501,6 +503,7 @@ export class CustomersPage {
 
   protected onRecordType(event: Event) {
     void this.store.setRecordType((event.target as HTMLSelectElement).value);
+    this.scheduleSearch();
   }
 
   protected onComposeType(event: Event) {
@@ -541,7 +544,7 @@ export class CustomersPage {
 
   protected onTextOp(code: string, event: Event) {
     this.store.setTextOp(code, (event.target as HTMLSelectElement).value);
-    void this.store.search();
+    this.scheduleSearch();
   }
 
   protected onTextValue(code: string, fallbackOp: string, event: Event) {
@@ -551,7 +554,7 @@ export class CustomersPage {
 
   protected onOption(code: string, value: string, checked: boolean) {
     this.store.setOption(code, value, checked);
-    void this.store.search();
+    this.scheduleSearch();
   }
 
   protected onMin(code: string, event: Event) {
@@ -566,21 +569,32 @@ export class CustomersPage {
 
   protected onBool(code: string, value: string) {
     this.store.setBool(code, value);
-    void this.store.search();
+    this.scheduleSearch();
   }
 
   protected removeChip(chip: FilterChip) {
     this.store.removeChip(chip);
-    void this.store.search();
+    this.scheduleSearch();
   }
 
   protected clearAll() {
     this.store.clearFilters();
-    void this.store.search();
+    this.scheduleSearch();
   }
 
   protected onPageSize(event: Event) {
+    this.cancelScheduledSearch();
     void this.store.setLimit(Number((event.target as HTMLSelectElement).value));
+  }
+
+  protected nextPage() {
+    this.cancelScheduledSearch();
+    void this.store.nextPage();
+  }
+
+  protected prevPage() {
+    this.cancelScheduledSearch();
+    void this.store.prevPage();
   }
 
   protected openRecord(row: Customer) {
@@ -607,6 +621,7 @@ export class CustomersPage {
       }
     }
     if (!recordType) return;
+    this.cancelScheduledSearch();
     void this.store.create(recordType, attributes).then((ok) => {
       if (ok) {
         form.reset();
@@ -615,8 +630,13 @@ export class CustomersPage {
     });
   }
 
-  private scheduleSearch() {
+  private cancelScheduledSearch() {
     clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => void this.store.search(), 280);
+    this.searchTimer = undefined;
+  }
+
+  private scheduleSearch() {
+    this.cancelScheduledSearch();
+    this.searchTimer = setTimeout(() => void this.store.search(), 2000);
   }
 }

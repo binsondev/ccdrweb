@@ -203,6 +203,42 @@ export const CustomersStore = signalStore(
       }
     };
 
+    const catalogPatch = (
+      types: { recordTypes: RecordType[] },
+      catalog: { attributes: AttributeDefinition[] },
+      filterable: { attributes: FilterableAttribute[] },
+      recordType: string | undefined,
+    ) => {
+      const scoped = recordType
+        ? catalog.attributes.filter((attr) => attr.recordType === recordType)
+        : catalog.attributes;
+      const hasMatchKey = scoped.some((attr) => attr.active && attr.matchKey);
+      return {
+        recordTypes: types.recordTypes,
+        attributes: catalog.attributes,
+        matchKeyWarning: recordType && !hasMatchKey
+          ? `At least one match-key attribute is recommended on '${recordType}' so later uploads can update existing records.`
+          : null,
+        filterable: filterable.attributes,
+      };
+    };
+
+    const refreshCatalog = async () => {
+      try {
+        const recordType = store.recordType() || undefined;
+        const [types, catalog, filterable] = await Promise.all([
+          api.recordTypes(),
+          api.attributes(),
+          api.filterableAttributes(recordType),
+        ]);
+        patchState(store, catalogPatch(types, catalog, filterable, recordType));
+        return true;
+      } catch (err) {
+        patchState(store, { error: apiMessage(err) });
+        return false;
+      }
+    };
+
     const load = async (resetPage = true) => {
       if (resetPage) {
         patchState(store, { offset: 0 });
@@ -222,18 +258,9 @@ export const CustomersStore = signalStore(
             limit: store.limit(),
           }),
         ]);
-        const scoped = recordType
-          ? catalog.attributes.filter((attr) => attr.recordType === recordType)
-          : catalog.attributes;
-        const hasMatchKey = scoped.some((attr) => attr.active && attr.matchKey);
         patchState(store, {
           loading: false,
-          recordTypes: types.recordTypes,
-          attributes: catalog.attributes,
-          matchKeyWarning: recordType && !hasMatchKey
-            ? `At least one match-key attribute is recommended on '${recordType}' so later uploads can update existing records.`
-            : null,
-          filterable: filterable.attributes,
+          ...catalogPatch(types, catalog, filterable, recordType),
           customers: list.customers,
           count: list.count,
           offset: list.offset,
@@ -261,7 +288,7 @@ export const CustomersStore = signalStore(
           max: {},
           bools: {},
         });
-        return load();
+        return refreshCatalog();
       },
       setTextOp(code: string, op: string) {
         patchState(store, {
