@@ -44,7 +44,9 @@ import { StatusBanner } from '../shared/status-banner';
             <div hlmCardHeader>
               <p hlmCardDescription>{{ batch.fileName }}</p>
               <h2 class="text-3xl font-semibold tracking-tight">{{ batch.totalRows }}</h2>
-              <p class="text-muted-foreground text-sm">rows staged</p>
+              <p class="text-muted-foreground text-sm">
+                rows staged · {{ batch.mappingProfileName }} v{{ batch.mappingVersionNumber }}
+              </p>
             </div>
             <div hlmCardContent class="grid gap-4">
               <dl class="grid grid-cols-3 gap-3 text-center">
@@ -61,8 +63,19 @@ import { StatusBanner } from '../shared/status-banner';
                   <dd class="text-lg font-semibold">{{ batch.reviewRows }}</dd>
                 </div>
               </dl>
+              @if (batch.missingHeaders.length) {
+                <p class="text-destructive text-xs">
+                  Mapping looks for {{ batch.missingHeaders.join(', ') }}, which is not in this
+                  workbook. The mapper matches the Excel header text, not the attribute code.
+                </p>
+              }
+              @if (batch.ignoredHeaders.length) {
+                <p class="text-muted-foreground text-xs">
+                  Unused columns in the file: {{ batch.ignoredHeaders.join(', ') }}.
+                </p>
+              }
               <p class="text-muted-foreground text-xs">Policy: {{ batch.commitPolicy }}.</p>
-              <button hlmBtn type="button" (click)="store.commit(batch.id)">
+              <button hlmBtn type="button" [disabled]="!batch.validRows" (click)="store.commit(batch.id)">
                 Commit {{ batch.validRows }} records
               </button>
               <button hlmBtn variant="ghost" type="button" (click)="store.cancel(batch.id)">Cancel</button>
@@ -70,6 +83,47 @@ import { StatusBanner } from '../shared/status-banner';
           </aside>
         }
       </div>
+
+      @if (store.stagedRows().length) {
+        <section hlmCard>
+          <div hlmCardHeader class="border-border border-b">
+            <h2 hlmCardTitle>Staged rows</h2>
+            <p hlmCardDescription>First rows from the latest staged workbook, including why a row failed.</p>
+          </div>
+          <div hlmCardContent class="p-0">
+            <div hlmTableContainer>
+              <table hlmTable>
+                <thead hlmTHead>
+                  <tr hlmTr>
+                    <th hlmTh>Excel row</th>
+                    <th hlmTh>Status</th>
+                    <th hlmTh>Values</th>
+                    <th hlmTh>Errors</th>
+                  </tr>
+                </thead>
+                <tbody hlmTBody>
+                  @for (row of store.stagedRows(); track row.id) {
+                    <tr hlmTr>
+                      <td hlmTd>{{ row.excelRow }}</td>
+                      <td hlmTd>
+                        <span hlmBadge [variant]="row.status === 'Valid' ? 'default' : 'destructive'">
+                          {{ row.status }}
+                        </span>
+                      </td>
+                      <td hlmTd class="text-xs">
+                        {{ valueSummary(row.values) }}
+                      </td>
+                      <td hlmTd class="text-destructive text-xs">
+                        {{ row.errors.map((error) => error.message).join(' ') || '—' }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      }
 
       <section hlmCard>
         <div hlmCardHeader class="border-border border-b">
@@ -130,9 +184,10 @@ export class UploadsPage {
   protected readonly activated = computed(() =>
     this.store.profiles().filter((profile) => profile.current?.activated),
   );
-  protected readonly latestStaged = computed(
-    () => this.store.batches().find((batch) => batch.status === 'Staged') ?? null,
-  );
+  protected readonly latestStaged = computed(() => {
+    const latest = this.store.batches()[0];
+    return latest?.status === 'Staged' ? latest : null;
+  });
 
   constructor() {
     effect(() => {
@@ -152,5 +207,11 @@ export class UploadsPage {
       return;
     }
     void this.store.upload(mappingProfileId, file).then(() => form.reset());
+  }
+
+  protected valueSummary(values: Record<string, unknown>) {
+    return Object.entries(values)
+      .map(([key, value]) => `${key}=${value == null || value === '' ? '∅' : value}`)
+      .join(' · ');
   }
 }

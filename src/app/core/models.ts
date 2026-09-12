@@ -219,6 +219,20 @@ export interface MappingProfileListResponse {
   profiles: MappingProfile[];
 }
 
+export interface StagedRowError {
+  attributeCode: string | null;
+  excelHeader: string | null;
+  message: string;
+}
+
+export interface StagedRow {
+  id: string;
+  excelRow: number;
+  status: string;
+  values: Record<string, unknown>;
+  errors: StagedRowError[];
+}
+
 export interface UploadBatch {
   id: string;
   tenant: string;

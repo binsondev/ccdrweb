@@ -21,6 +21,7 @@ import type {
   RecordType,
   RecordTypeListResponse,
   SettingsResponse,
+  StagedRow,
   UploadBatch,
 } from './models';
 
@@ -221,6 +222,13 @@ export class Api {
 
   getUpload(id: string) {
     return this.get<UploadBatch>(`/api/uploads/${id}`);
+  }
+
+  stagedRows(batchId: string, limit = 20) {
+    return this.get<{ batchId: string; count: number; rows: StagedRow[] }>(
+      `/api/uploads/${batchId}/staged-rows`,
+      new HttpParams().set('limit', String(limit)),
+    );
   }
 
   createUpload(mappingProfileId: string, file: File) {
