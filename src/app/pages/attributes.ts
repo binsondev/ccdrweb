@@ -11,8 +11,38 @@ import { HlmTableImports } from '@spartan-ng/helm/table';
 import { RouterLink } from '@angular/router';
 import { AttributesStore } from '../core/attributes.store';
 import { AuthStore } from '../core/auth.store';
-import { DATA_TYPES, DataType } from '../core/models';
+import { AttributeDefinition, DATA_TYPES, DataType } from '../core/models';
 import { StatusBanner } from '../shared/status-banner';
+
+type AttributeDraft = {
+  code: string;
+  label: string;
+  group: string;
+  dataType: DataType;
+  helpText: string;
+  matchKey: boolean;
+  required: boolean;
+  filterable: boolean;
+  listVisible: boolean;
+  pii: boolean;
+  active: boolean;
+};
+
+type OptionDraft = { value: string; label: string };
+
+const emptyDraft = (): AttributeDraft => ({
+  code: '',
+  label: '',
+  group: '',
+  dataType: 'Text',
+  helpText: '',
+  matchKey: false,
+  required: false,
+  filterable: true,
+  listVisible: true,
+  pii: false,
+  active: true,
+});
 
 @Component({
   selector: 'ccdr-attributes',
@@ -98,9 +128,14 @@ import { StatusBanner } from '../shared/status-banner';
                   </thead>
                   <tbody hlmTBody>
                     @for (attr of byGroup(group); track attr.code) {
-                      <tr hlmTr>
+                      <tr hlmTr [class.bg-muted/40]="editingCode() === attr.code">
                         <td hlmTd class="font-mono text-xs">{{ attr.code }}</td>
-                        <td hlmTd>{{ attr.label }}</td>
+                        <td hlmTd>
+                          <div>{{ attr.label }}</div>
+                          @if (attr.helpText) {
+                            <p class="text-muted-foreground text-xs">{{ attr.helpText }}</p>
+                          }
+                        </td>
                         <td hlmTd>{{ attr.dataType }}</td>
                         <td hlmTd>
                           <div class="flex flex-wrap gap-1">
@@ -120,9 +155,21 @@ import { StatusBanner } from '../shared/status-banner';
                         </td>
                         @if (auth.canCatalogWrite()) {
                           <td hlmTd>
-                            <button hlmBtn variant="ghost" size="sm" type="button" (click)="store.toggleActive(attr)">
-                              {{ attr.active ? 'Deactivate' : 'Activate' }}
-                            </button>
+                            <div class="flex flex-wrap gap-1">
+                              <button hlmBtn variant="ghost" size="sm" type="button" (click)="startEdit(attr)">
+                                {{ editingCode() === attr.code ? 'Editing' : 'Edit' }}
+                              </button>
+                              <button
+                                hlmBtn
+                                variant="ghost"
+                                size="sm"
+                                type="button"
+                                [disabled]="store.saving()"
+                                (click)="store.toggleActive(attr)"
+                              >
+                                {{ attr.active ? 'Deactivate' : 'Activate' }}
+                              </button>
+                            </div>
                           </td>
                         }
                       </tr>
@@ -138,51 +185,121 @@ import { StatusBanner } from '../shared/status-banner';
       @if (auth.canCatalogWrite() && store.recordType()) {
         <section hlmCard class="max-w-3xl">
           <div hlmCardHeader>
-            <h2 hlmCardTitle>Add attribute</h2>
-            <p hlmCardDescription>Code cannot change after save. It is unique on this record type only.</p>
+            <h2 hlmCardTitle>{{ editingCode() ? 'Edit attribute' : 'Add attribute' }}</h2>
+            <p hlmCardDescription>
+              @if (editingCode()) {
+                Code and data type stay as they were. Label, flags, help text, and dropdown options can change.
+              } @else {
+                Code cannot change after save. It is unique on this record type only.
+              }
+            </p>
           </div>
           <div hlmCardContent>
-            <form class="grid gap-3 md:grid-cols-2" (submit)="onCreate($event)">
+            <form class="grid gap-3 md:grid-cols-2" (submit)="onSave($event)">
               <label class="grid gap-1.5 text-sm font-medium">
                 Code
-                <input hlmInput [formField]="createForm.code" placeholder="phone" />
+                <input
+                  hlmInput
+                  [formField]="draftForm.code"
+                  [readonly]="!!editingCode()"
+                  placeholder="phone"
+                />
               </label>
               <label class="grid gap-1.5 text-sm font-medium">
                 Label
-                <input hlmInput [formField]="createForm.label" placeholder="Phone" />
+                <input hlmInput [formField]="draftForm.label" placeholder="Phone" />
               </label>
               <label class="grid gap-1.5 text-sm font-medium">
                 Group
-                <input hlmInput [formField]="createForm.group" placeholder="Contact" />
+                <input hlmInput [formField]="draftForm.group" placeholder="Contact" />
               </label>
               <label class="grid gap-1.5 text-sm font-medium">
                 Data type
-                <select hlmInput [formField]="createForm.dataType">
+                <select hlmInput [formField]="draftForm.dataType" [disabled]="!!editingCode()" (change)="onDataType()">
                   @for (type of types; track type) {
                     <option [value]="type">{{ type }}</option>
                   }
                 </select>
               </label>
+              <label class="grid gap-1.5 text-sm font-medium md:col-span-2">
+                Help text
+                <input hlmInput [formField]="draftForm.helpText" placeholder="Shown on the record form" />
+              </label>
               <label hlmLabel class="font-normal">
-                <hlm-checkbox [formField]="createForm.matchKey" />
+                <hlm-checkbox [formField]="draftForm.matchKey" />
                 Match key
               </label>
               <label hlmLabel class="font-normal">
-                <hlm-checkbox [formField]="createForm.required" />
+                <hlm-checkbox [formField]="draftForm.required" />
                 Required
               </label>
               <label hlmLabel class="font-normal">
-                <hlm-checkbox [formField]="createForm.filterable" />
+                <hlm-checkbox [formField]="draftForm.filterable" />
                 Filterable
               </label>
               <label hlmLabel class="font-normal">
-                <hlm-checkbox [formField]="createForm.listVisible" />
+                <hlm-checkbox [formField]="draftForm.listVisible" />
                 Show in list
               </label>
-              <div class="md:col-span-2">
+              <label hlmLabel class="font-normal">
+                <hlm-checkbox [formField]="draftForm.pii" />
+                PII
+              </label>
+              @if (editingCode()) {
+                <label hlmLabel class="font-normal">
+                  <hlm-checkbox [formField]="draftForm.active" />
+                  Active
+                </label>
+              }
+
+              @if (model().dataType === 'Dropdown') {
+                <div class="grid gap-2 md:col-span-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-medium">Dropdown options</p>
+                    <button hlmBtn variant="outline" size="sm" type="button" (click)="addOption()">
+                      Add option
+                    </button>
+                  </div>
+                  @if (!options().length) {
+                    <p class="text-muted-foreground text-sm">No options yet. Add at least one value.</p>
+                  }
+                  @for (option of options(); track $index) {
+                    <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                      <input
+                        hlmInput
+                        [value]="option.value"
+                        placeholder="value"
+                        (input)="patchOption($index, 'value', $event)"
+                      />
+                      <input
+                        hlmInput
+                        [value]="option.label"
+                        placeholder="Label"
+                        (input)="patchOption($index, 'label', $event)"
+                      />
+                      <button hlmBtn variant="ghost" size="sm" type="button" (click)="removeOption($index)">
+                        Remove
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="flex flex-wrap gap-2 md:col-span-2">
                 <button hlmBtn type="submit" [disabled]="store.saving()">
-                  {{ store.saving() ? 'Saving…' : 'Create attribute' }}
+                  @if (store.saving()) {
+                    Saving…
+                  } @else if (editingCode()) {
+                    Save changes
+                  } @else {
+                    Create attribute
+                  }
                 </button>
+                @if (editingCode()) {
+                  <button hlmBtn variant="outline" type="button" [disabled]="store.saving()" (click)="cancelEdit()">
+                    Cancel
+                  </button>
+                }
               </div>
             </form>
           </div>
@@ -195,17 +312,10 @@ export class AttributesPage {
   protected readonly auth = inject(AuthStore);
   protected readonly store = inject(AttributesStore);
   protected readonly types = DATA_TYPES;
-  protected readonly model = signal({
-    code: '',
-    label: '',
-    group: '',
-    dataType: 'Text' as DataType,
-    matchKey: false,
-    required: false,
-    filterable: true,
-    listVisible: true,
-  });
-  protected readonly createForm = form(this.model, (schema) => {
+  protected readonly editingCode = signal<string | null>(null);
+  protected readonly options = signal<OptionDraft[]>([]);
+  protected readonly model = signal<AttributeDraft>(emptyDraft());
+  protected readonly draftForm = form(this.model, (schema) => {
     required(schema.code);
     required(schema.label);
   });
@@ -227,37 +337,95 @@ export class AttributesPage {
     return this.store.attributes().filter((attr) => (attr.group?.trim() || 'Ungrouped') === group);
   }
 
+  protected startEdit(attr: AttributeDefinition) {
+    this.editingCode.set(attr.code);
+    this.model.set({
+      code: attr.code,
+      label: attr.label,
+      group: attr.group ?? '',
+      dataType: attr.dataType,
+      helpText: attr.helpText ?? '',
+      matchKey: attr.matchKey,
+      required: attr.required,
+      filterable: attr.filterable,
+      listVisible: attr.listVisible,
+      pii: attr.pii,
+      active: attr.active,
+    });
+    this.options.set(attr.options.map((option) => ({ value: option.value, label: option.label })));
+  }
+
+  protected cancelEdit() {
+    this.editingCode.set(null);
+    this.model.set(emptyDraft());
+    this.options.set([]);
+  }
+
   protected onType(event: Event) {
+    this.cancelEdit();
     void this.store.setRecordType((event.target as HTMLSelectElement).value);
   }
 
-  protected onCreate(event: Event) {
+  protected onDataType() {
+    if (this.model().dataType !== 'Dropdown') {
+      this.options.set([]);
+    } else if (!this.options().length) {
+      this.options.set([{ value: '', label: '' }]);
+    }
+  }
+
+  protected addOption() {
+    this.options.update((current) => [...current, { value: '', label: '' }]);
+  }
+
+  protected removeOption(index: number) {
+    this.options.update((current) => current.filter((_, i) => i !== index));
+  }
+
+  protected patchOption(index: number, key: keyof OptionDraft, event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    this.options.update((current) =>
+      current.map((option, i) => (i === index ? { ...option, [key]: value } : option)),
+    );
+  }
+
+  protected onSave(event: Event) {
     event.preventDefault();
     const value = this.model();
-    void this.store
-      .create({
-        code: value.code.trim(),
-        label: value.label.trim(),
-        group: value.group.trim() || null,
-        dataType: value.dataType,
-        matchKey: value.matchKey,
-        required: value.required,
-        filterable: value.filterable,
-        listVisible: value.listVisible,
-        pii: false,
-        active: true,
-      })
-      .then(() =>
-        this.model.set({
-          code: '',
-          label: '',
-          group: '',
-          dataType: 'Text',
-          matchKey: false,
-          required: false,
-          filterable: true,
-          listVisible: true,
-        }),
-      );
+    const options =
+      value.dataType === 'Dropdown'
+        ? this.options()
+            .map((option) => ({
+              value: option.value.trim(),
+              label: (option.label || option.value).trim(),
+            }))
+            .filter((option) => option.value.length > 0)
+            .map((option, index) => ({ ...option, sortOrder: (index + 1) * 10 }))
+        : [];
+    const payload = {
+      code: value.code.trim(),
+      label: value.label.trim(),
+      group: value.group.trim() || null,
+      dataType: value.dataType,
+      matchKey: value.matchKey,
+      required: value.required,
+      filterable: value.filterable,
+      listVisible: value.listVisible,
+      pii: value.pii,
+      active: value.active,
+      helpText: value.helpText.trim() || null,
+      options,
+    };
+
+    const done = (ok: boolean) => {
+      if (ok) this.cancelEdit();
+    };
+
+    if (this.editingCode()) {
+      void this.store.update(this.editingCode()!, payload).then(done);
+      return;
+    }
+
+    void this.store.create(payload).then(done);
   }
 }

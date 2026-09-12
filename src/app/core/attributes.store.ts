@@ -61,6 +61,56 @@ export const AttributesStore = signalStore(
       }
     };
 
+    const persist = async (
+      code: string,
+      body: {
+        label: string;
+        group?: string | null;
+        required: boolean;
+        matchKey: boolean;
+        filterable: boolean;
+        listVisible: boolean;
+        pii: boolean;
+        active: boolean;
+        helpText?: string | null;
+        options?: { value: string; label: string; sortOrder?: number }[];
+      },
+    ) => {
+      const recordType = store.recordType();
+      const current = store.attributes().find((attr) => attr.code === code);
+      if (!recordType || !current) {
+        patchState(store, { error: 'Choose an attribute to edit.' });
+        return false;
+      }
+      patchState(store, { saving: true, error: null, notice: null });
+      try {
+        await api.updateAttribute(recordType, code, {
+          label: body.label,
+          group: body.group ?? null,
+          dataType: current.dataType,
+          required: body.required,
+          matchKey: body.matchKey,
+          filterable: body.filterable,
+          listVisible: body.listVisible,
+          pii: body.pii,
+          active: body.active,
+          helpText: body.helpText ?? null,
+          defaultValue: current.defaultValue,
+          sortOrder: current.sortOrder,
+          options: (body.options ?? current.options).map((option, index) => ({
+            value: option.value,
+            label: option.label,
+            sortOrder: option.sortOrder ?? (index + 1) * 10,
+          })),
+        });
+        patchState(store, { saving: false, notice: `Attribute ${code} updated.` });
+        return load();
+      } catch (err) {
+        patchState(store, { saving: false, error: apiMessage(err) });
+        return false;
+      }
+    };
+
     return {
       load,
       setRecordType(recordType: string) {
@@ -79,6 +129,7 @@ export const AttributesStore = signalStore(
         active: boolean;
         group?: string | null;
         helpText?: string | null;
+        options?: { value: string; label: string; sortOrder?: number }[];
       }) {
         const recordType = store.recordType();
         if (!recordType) {
@@ -95,15 +146,36 @@ export const AttributesStore = signalStore(
           return false;
         }
       },
-      async toggleActive(attribute: AttributeDefinition) {
-        patchState(store, { error: null, notice: null });
-        try {
-          await api.updateAttribute(attribute.recordType, attribute.code, { active: !attribute.active });
-          return load();
-        } catch (err) {
-          patchState(store, { error: apiMessage(err) });
-          return false;
-        }
+      async update(
+        code: string,
+        body: {
+          label: string;
+          group?: string | null;
+          required: boolean;
+          matchKey: boolean;
+          filterable: boolean;
+          listVisible: boolean;
+          pii: boolean;
+          active: boolean;
+          helpText?: string | null;
+          options?: { value: string; label: string; sortOrder?: number }[];
+        },
+      ) {
+        return persist(code, body);
+      },
+      toggleActive(attribute: AttributeDefinition) {
+        return persist(attribute.code, {
+          label: attribute.label,
+          group: attribute.group,
+          required: attribute.required,
+          matchKey: attribute.matchKey,
+          filterable: attribute.filterable,
+          listVisible: attribute.listVisible,
+          pii: attribute.pii,
+          active: !attribute.active,
+          helpText: attribute.helpText,
+          options: attribute.options,
+        });
       },
     };
   }),

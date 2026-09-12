@@ -380,7 +380,7 @@ import { StatusBanner } from '../shared/status-banner';
     </div>
 
     @if (selected(); as row) {
-      <div class="bg-foreground/25 fixed inset-0 z-40" (click)="selected.set(null)"></div>
+      <div class="bg-foreground/25 fixed inset-0 z-40" (click)="closeRecord()"></div>
       <aside
         class="bg-card text-card-foreground border-border fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l shadow-lg"
         role="dialog"
@@ -395,25 +395,71 @@ import { StatusBanner } from '../shared/status-banner';
             <h2 class="text-xl font-semibold tracking-tight">{{ recordTitle(row) }}</h2>
             <p class="text-muted-foreground mt-1 text-sm">{{ store.typeLabel()(row.recordType) }}</p>
           </div>
-          <button hlmBtn variant="ghost" size="sm" type="button" (click)="selected.set(null)">
-            Close
-          </button>
-        </div>
-        <dl class="grid flex-1 gap-4 overflow-y-auto px-6 pb-6">
-          @for (attr of attributesFor(row.recordType); track attr.code) {
-            @if (attr.active) {
-              <div>
-                <dt class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
-                  {{ attr.label }}
-                  @if (attr.matchKey) {
-                    <span class="text-primary"> · match key</span>
-                  }
-                </dt>
-                <dd>{{ displayValue(row.attributes[attr.code]) }}</dd>
-              </div>
+          <div class="flex flex-wrap gap-2">
+            @if (auth.canCustomerWrite() && !editingRecord()) {
+              <button hlmBtn variant="outline" size="sm" type="button" (click)="startEditRecord(row)">
+                Edit attributes
+              </button>
             }
-          }
-        </dl>
+            <button hlmBtn variant="ghost" size="sm" type="button" (click)="closeRecord()">
+              Close
+            </button>
+          </div>
+        </div>
+        @if (editingRecord()) {
+          <form class="grid flex-1 gap-3 overflow-y-auto px-6 pb-6" (submit)="onSaveRecord($event)">
+            <p class="text-muted-foreground text-sm">
+              Keep the match key the same to update this record. Changing it creates a new bag.
+            </p>
+            @for (attr of attributesFor(row.recordType); track attr.code) {
+              @if (attr.active) {
+                <label class="grid gap-1.5 text-sm font-medium">
+                  <span>
+                    {{ attr.label }}
+                    @if (attr.required) {
+                      <span class="text-destructive">*</span>
+                    }
+                    @if (attr.matchKey) {
+                      <span class="text-muted-foreground font-normal">(match key)</span>
+                    }
+                  </span>
+                  <input
+                    hlmInput
+                    [name]="attr.code"
+                    [required]="attr.required"
+                    [value]="editValue(attr.code)"
+                    [placeholder]="attr.helpText || attr.code"
+                    (input)="onEditValue(attr.code, $event)"
+                  />
+                </label>
+              }
+            }
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button hlmBtn type="submit" [disabled]="store.saving()">
+                {{ store.saving() ? 'Saving…' : 'Save attributes' }}
+              </button>
+              <button hlmBtn variant="outline" type="button" [disabled]="store.saving()" (click)="cancelEditRecord()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        } @else {
+          <dl class="grid flex-1 gap-4 overflow-y-auto px-6 pb-6">
+            @for (attr of attributesFor(row.recordType); track attr.code) {
+              @if (attr.active) {
+                <div>
+                  <dt class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
+                    {{ attr.label }}
+                    @if (attr.matchKey) {
+                      <span class="text-primary"> · match key</span>
+                    }
+                  </dt>
+                  <dd>{{ displayValue(row.attributes[attr.code]) }}</dd>
+                </div>
+              }
+            }
+          </dl>
+        }
       </aside>
     }
 
@@ -479,6 +525,8 @@ export class CustomersPage {
   protected readonly operatorLabel = operatorLabel;
   protected readonly panelOpen = signal(true);
   protected readonly selected = signal<Customer | null>(null);
+  protected readonly editingRecord = signal(false);
+  protected readonly editValues = signal<Record<string, string>>({});
   protected readonly composing = signal(false);
   protected readonly composeType = signal('');
   protected readonly boolChoices = [
@@ -601,7 +649,56 @@ export class CustomersPage {
 
   protected openRecord(row: Customer) {
     this.composing.set(false);
+    this.editingRecord.set(false);
+    this.editValues.set({});
     this.selected.set(row);
+  }
+
+  protected closeRecord() {
+    this.editingRecord.set(false);
+    this.editValues.set({});
+    this.selected.set(null);
+  }
+
+  protected startEditRecord(row: Customer) {
+    const values: Record<string, string> = {};
+    for (const attr of this.attributesFor(row.recordType)) {
+      const raw = row.attributes[attr.code];
+      values[attr.code] = raw == null ? '' : String(raw);
+    }
+    this.editValues.set(values);
+    this.editingRecord.set(true);
+  }
+
+  protected cancelEditRecord() {
+    this.editingRecord.set(false);
+    this.editValues.set({});
+  }
+
+  protected editValue(code: string) {
+    return this.editValues()[code] ?? '';
+  }
+
+  protected onEditValue(code: string, event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    this.editValues.update((current) => ({ ...current, [code]: value }));
+  }
+
+  protected onSaveRecord(event: Event) {
+    event.preventDefault();
+    const row = this.selected();
+    if (!row) return;
+    const attributes: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(this.editValues())) {
+      attributes[key] = value.trim();
+    }
+    void this.store.create(row.recordType, attributes).then((ok) => {
+      if (!ok) return;
+      const updated = this.store.customers().find((customer) => customer.id === row.id) ?? row;
+      this.editingRecord.set(false);
+      this.editValues.set({});
+      this.selected.set(updated);
+    });
   }
 
   protected openCompose() {

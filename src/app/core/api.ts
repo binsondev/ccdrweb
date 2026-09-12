@@ -6,6 +6,7 @@ import type {
   AppRole,
   AttributeDefinition,
   AttributeListResponse,
+  AttributeOption,
   Customer,
   CustomerListResponse,
   DataType,
@@ -92,6 +93,7 @@ export class Api {
     pii: boolean;
     active: boolean;
     helpText?: string | null;
+    options?: AttributeOption[];
   }) {
     return this.post<AttributeDefinition>('/api/attributes', body);
   }
@@ -99,17 +101,21 @@ export class Api {
   updateAttribute(
     recordType: string,
     code: string,
-    body: Partial<{
+    body: {
       label: string;
-      group: string | null;
+      group?: string | null;
+      dataType: DataType;
       required: boolean;
       matchKey: boolean;
       filterable: boolean;
       listVisible: boolean;
       pii: boolean;
       active: boolean;
-      helpText: string | null;
-    }>,
+      helpText?: string | null;
+      defaultValue?: string | null;
+      sortOrder?: number;
+      options?: AttributeOption[];
+    },
   ) {
     return this.put<AttributeDefinition>(`/api/attributes/${recordType}/${code}`, { recordType, code, ...body });
   }
