@@ -3,7 +3,6 @@ import { FormField, form, required } from '@angular/forms/signals';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { AuthStore } from '../core/auth.store';
 import { ThemeStore } from '../core/theme.store';
 import { DEV_USERS } from '../core/models';
@@ -11,7 +10,7 @@ import { StatusBanner } from '../shared/status-banner';
 
 @Component({
   selector: 'ccdr-login',
-  imports: [FormField, HlmBadge, HlmButton, HlmInput, HlmSeparator, StatusBanner],
+  imports: [FormField, HlmBadge, HlmButton, HlmInput, StatusBanner],
   template: `
     <div class="bg-background text-foreground min-h-dvh">
       <div
@@ -40,8 +39,8 @@ import { StatusBanner } from '../shared/status-banner';
               Enterprise customer master for multi-tenant operations.
             </h1>
             <p class="text-sidebar-foreground/70 mt-4 max-w-md text-sm leading-relaxed">
+              Sign in with your email and password. The API issues an access token and a refresh token.
               Tenant Admin owns the attribute schema. Uploaders map Excel columns and commit batches.
-              Query users search only their tenant. Sign in with a known email — no password form.
             </p>
           </div>
           <ol class="grid gap-3 text-sm">
@@ -65,13 +64,43 @@ import { StatusBanner } from '../shared/status-banner';
             <p class="text-muted-foreground text-[11px] font-semibold tracking-[0.16em] uppercase">
               Sign in
             </p>
-            <h2 class="mt-1 text-2xl font-semibold tracking-tight">Choose a persona</h2>
+            <h2 class="mt-1 text-2xl font-semibold tracking-tight">Email and password</h2>
             <p class="text-muted-foreground mt-2 mb-6 text-sm leading-relaxed">
-              Pick a seeded user to enter a workspace. There is no password on this screen.
+              Use your workspace email. Seeded local accounts share the password
+              <span class="text-foreground font-mono">LocalDev!23</span>.
             </p>
 
             <ccdr-status [error]="auth.error()" />
 
+            <form class="grid gap-3" (submit)="onSubmit($event)">
+              <label class="grid gap-1.5 text-sm font-medium" for="username">
+                Email
+                <input
+                  id="username"
+                  hlmInput
+                  type="email"
+                  autocomplete="username"
+                  [formField]="loginForm.username"
+                />
+              </label>
+              <label class="grid gap-1.5 text-sm font-medium" for="password">
+                Password
+                <input
+                  id="password"
+                  hlmInput
+                  type="password"
+                  autocomplete="current-password"
+                  [formField]="loginForm.password"
+                />
+              </label>
+              <button hlmBtn type="submit" [disabled]="auth.loading()">
+                {{ auth.loading() ? 'Signing in…' : 'Sign in' }}
+              </button>
+            </form>
+
+            <p class="text-muted-foreground mt-6 mb-2 text-[11px] font-semibold tracking-[0.16em] uppercase">
+              Fill a seeded email
+            </p>
             <div class="grid gap-2">
               @for (user of users; track user.email) {
                 <button
@@ -80,7 +109,7 @@ import { StatusBanner } from '../shared/status-banner';
                   type="button"
                   class="h-auto justify-start py-3 text-left"
                   [disabled]="auth.loading()"
-                  (click)="pick(user.email)"
+                  (click)="fill(user.email)"
                 >
                   <span class="grid">
                     <span>{{ user.label }}</span>
@@ -89,24 +118,6 @@ import { StatusBanner } from '../shared/status-banner';
                 </button>
               }
             </div>
-
-            <hlm-separator class="my-6" />
-
-            <form class="grid gap-3" (submit)="onSubmit($event)">
-              <label class="grid gap-1.5 text-sm font-medium" for="email">
-                Email
-                <input
-                  id="email"
-                  hlmInput
-                  type="email"
-                  autocomplete="username"
-                  [formField]="loginForm.email"
-                />
-              </label>
-              <button hlmBtn type="submit" [disabled]="auth.loading()">
-                {{ auth.loading() ? 'Signing in…' : 'Sign in' }}
-              </button>
-            </form>
           </div>
         </section>
       </div>
@@ -117,18 +128,19 @@ export class LoginPage {
   protected readonly auth = inject(AuthStore);
   protected readonly theme = inject(ThemeStore);
   protected readonly users = DEV_USERS;
-  protected readonly model = signal({ email: 'acme.admin@local' });
+  protected readonly model = signal({ username: 'acme.admin@local', password: '' });
   protected readonly loginForm = form(this.model, (schema) => {
-    required(schema.email);
+    required(schema.username);
+    required(schema.password);
   });
 
-  protected pick(email: string) {
-    this.model.update((current) => ({ ...current, email }));
-    void this.auth.login(email);
+  protected fill(email: string) {
+    this.model.update((current) => ({ ...current, username: email }));
   }
 
   protected onSubmit(event: Event) {
     event.preventDefault();
-    void this.auth.login(this.model().email);
+    const value = this.model();
+    void this.auth.login(value.username.trim(), value.password);
   }
 }

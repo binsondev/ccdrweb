@@ -2,9 +2,10 @@ import { computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withComputed, withHooks, withMethods, withState } from '@ngrx/signals';
 import { Api, apiMessage } from './api';
-import { MeResponse, TenantMembership } from './models';
+import { MeResponse, TenantMembership, TokenResponse } from './models';
 
 const TOKEN_KEY = 'ccdr.accessToken';
+const REFRESH_KEY = 'ccdr.refreshToken';
 const TENANT_KEY = 'ccdr.tenant';
 
 const readStorage = (key: string) => {
@@ -17,6 +18,7 @@ const readStorage = (key: string) => {
 
 type AuthState = {
   token: string | null;
+  refreshToken: string | null;
   me: MeResponse | null;
   tenants: TenantMembership[];
   tenantSlug: string | null;
@@ -27,11 +29,12 @@ type AuthState = {
 
 const initial: AuthState = {
   token: readStorage(TOKEN_KEY),
+  refreshToken: readStorage(REFRESH_KEY),
   me: null,
   tenants: [],
   tenantSlug: readStorage(TENANT_KEY),
   loading: false,
-  ready: !readStorage(TOKEN_KEY),
+  ready: !readStorage(TOKEN_KEY) && !readStorage(REFRESH_KEY),
   error: null,
 };
 
@@ -39,7 +42,7 @@ export const AuthStore = signalStore(
   { providedIn: 'root' },
   withState(initial),
   withComputed((store) => ({
-    isAuthenticated: computed(() => !!store.token()),
+    isAuthenticated: computed(() => !!store.token() || !!store.refreshToken()),
     isPlatformAdmin: computed(() => store.me()?.platformAdmin === true),
     currentMembership: computed(() => {
       const slug = store.tenantSlug();
@@ -80,15 +83,24 @@ export const AuthStore = signalStore(
     }),
   })),
   withMethods((store, api = inject(Api), router = inject(Router)) => {
-    const persist = (token: string | null, slug: string | null) => {
+    let refreshInFlight: Promise<boolean> | null = null;
+
+    const persist = (tokens: { access: string | null; refresh: string | null }, slug: string | null) => {
       try {
-        if (token) localStorage.setItem(TOKEN_KEY, token);
+        if (tokens.access) localStorage.setItem(TOKEN_KEY, tokens.access);
         else localStorage.removeItem(TOKEN_KEY);
+        if (tokens.refresh) localStorage.setItem(REFRESH_KEY, tokens.refresh);
+        else localStorage.removeItem(REFRESH_KEY);
         if (slug) localStorage.setItem(TENANT_KEY, slug);
         else localStorage.removeItem(TENANT_KEY);
       } catch {
         /* ignore quota / private mode */
       }
+    };
+
+    const applyTokens = (issued: TokenResponse) => {
+      persist({ access: issued.accessToken, refresh: issued.refreshToken }, store.tenantSlug());
+      patchState(store, { token: issued.accessToken, refreshToken: issued.refreshToken });
     };
 
     const loadSession = async () => {
@@ -101,7 +113,7 @@ export const AuthStore = signalStore(
           : null) ??
         mine.tenants[0]?.tenant ??
         null;
-      persist(store.token(), nextSlug);
+      persist({ access: store.token(), refresh: store.refreshToken() }, nextSlug);
       patchState(store, {
         me,
         tenants: mine.tenants,
@@ -112,22 +124,36 @@ export const AuthStore = signalStore(
       });
     };
 
+    const clearSession = () => {
+      persist({ access: null, refresh: null }, null);
+      patchState(store, {
+        token: null,
+        refreshToken: null,
+        me: null,
+        tenants: [],
+        tenantSlug: null,
+        loading: false,
+        ready: true,
+        error: null,
+      });
+    };
+
     return {
       homePath(): string {
         return store.tenantSlug() ? '/app/customers' : '/app/platform';
       },
-      async login(email: string) {
+      async login(username: string, password: string) {
         patchState(store, { loading: true, error: null });
         try {
-          const issued = await api.issueDevToken(email);
-          persist(issued.accessToken, store.tenantSlug());
-          patchState(store, { token: issued.accessToken });
+          const issued = await api.login(username, password);
+          applyTokens(issued);
           await loadSession();
           await router.navigateByUrl(store.tenantSlug() ? '/app/customers' : '/app/platform');
         } catch (err) {
-          persist(null, store.tenantSlug());
+          persist({ access: null, refresh: null }, store.tenantSlug());
           patchState(store, {
             token: null,
+            refreshToken: null,
             me: null,
             loading: false,
             ready: true,
@@ -135,8 +161,24 @@ export const AuthStore = signalStore(
           });
         }
       },
+      refreshTokens() {
+        const current = store.refreshToken();
+        if (!current) return Promise.resolve(false);
+        if (refreshInFlight) return refreshInFlight;
+        refreshInFlight = (async () => {
+          try {
+            applyTokens(await api.refresh(current));
+            return true;
+          } catch {
+            return false;
+          } finally {
+            refreshInFlight = null;
+          }
+        })();
+        return refreshInFlight;
+      },
       async restore() {
-        if (!store.token()) {
+        if (!store.token() && !store.refreshToken()) {
           patchState(store, { ready: true, loading: false });
           return;
         }
@@ -144,20 +186,29 @@ export const AuthStore = signalStore(
         try {
           await loadSession();
         } catch {
-          persist(null, null);
-          patchState(store, {
-            token: null,
-            me: null,
-            tenants: [],
-            tenantSlug: null,
-            loading: false,
-            ready: true,
-            error: null,
-          });
+          const current = store.refreshToken();
+          let refreshed = false;
+          if (current) {
+            try {
+              applyTokens(await api.refresh(current));
+              refreshed = true;
+            } catch {
+              refreshed = false;
+            }
+          }
+          if (!refreshed) {
+            clearSession();
+            return;
+          }
+          try {
+            await loadSession();
+          } catch {
+            clearSession();
+          }
         }
       },
       async selectTenant(slug: string) {
-        persist(store.token(), slug);
+        persist({ access: store.token(), refresh: store.refreshToken() }, slug);
         patchState(store, { tenantSlug: slug });
         try {
           const me = await api.me();
@@ -167,16 +218,11 @@ export const AuthStore = signalStore(
         }
       },
       logout() {
-        persist(null, null);
-        patchState(store, {
-          token: null,
-          me: null,
-          tenants: [],
-          tenantSlug: null,
-          loading: false,
-          ready: true,
-          error: null,
-        });
+        const refresh = store.refreshToken();
+        clearSession();
+        if (refresh) {
+          void api.logout(refresh).catch(() => undefined);
+        }
         void router.navigateByUrl('/login');
       },
     };

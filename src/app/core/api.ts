@@ -12,6 +12,7 @@ import type {
   DataType,
   DevTokenResponse,
   FilterableAttribute,
+  TokenResponse,
   MappingPreview,
   MappingProfile,
   MappingProfileListResponse,
@@ -30,6 +31,18 @@ import type {
 @Injectable({ providedIn: 'root' })
 export class Api {
   private readonly http = inject(HttpClient);
+
+  login(username: string, password: string) {
+    return this.post<TokenResponse>('/api/auth/login', { username, password });
+  }
+
+  refresh(refreshToken: string) {
+    return this.post<TokenResponse>('/api/auth/refresh', { refreshToken });
+  }
+
+  logout(refreshToken: string | null) {
+    return this.post<void>('/api/auth/logout', { refreshToken });
+  }
 
   issueDevToken(email: string) {
     return this.post<DevTokenResponse>('/api/dev/token', { email });

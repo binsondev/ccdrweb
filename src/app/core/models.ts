@@ -28,6 +28,14 @@ export const MEMBER_ROLES: AppRole[] = ['TenantAdmin', 'Uploader', 'QueryUser'];
 
 export const BUSINESS_TYPES = ['Hospital', 'Shop', 'School', 'Other'] as const;
 
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresInSeconds: number;
+  refreshExpiresInSeconds: number;
+}
+
 export interface DevTokenResponse {
   accessToken: string;
   tokenType: string;
