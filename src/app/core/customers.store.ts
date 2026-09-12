@@ -29,6 +29,8 @@ type CustomersState = {
   bools: Record<string, string>;
   customers: Customer[];
   count: number;
+  offset: number;
+  limit: number;
   attributes: AttributeDefinition[];
   filterable: FilterableAttribute[];
   matchKeyWarning: string | null;
@@ -49,6 +51,8 @@ const initial: CustomersState = {
   bools: {},
   customers: [],
   count: 0,
+  offset: 0,
+  limit: 25,
   attributes: [],
   filterable: [],
   matchKeyWarning: null,
@@ -151,24 +155,72 @@ export const CustomersStore = signalStore(
       const byCode = new Map(store.recordTypes().map((type) => [type.code, type.label]));
       return (code: string) => byCode.get(code) ?? code;
     }),
+    page: computed(() => Math.floor(store.offset() / store.limit()) + 1),
+    pageCount: computed(() => Math.max(1, Math.ceil(store.count() / store.limit()))),
+    from: computed(() => (store.count() === 0 ? 0 : store.offset() + 1)),
+    to: computed(() => Math.min(store.offset() + store.customers().length, store.count())),
+    hasPrev: computed(() => store.offset() > 0),
+    hasNext: computed(() => store.offset() + store.limit() < store.count()),
   })),
   withMethods((store, api = inject(Api)) => {
-    const load = async () => {
+    const query = () =>
+      serialize({
+        text: store.text(),
+        options: store.options(),
+        min: store.min(),
+        max: store.max(),
+        bools: store.bools(),
+      });
+
+    const search = async (): Promise<boolean> => {
       patchState(store, { loading: true, error: null });
       try {
         const recordType = store.recordType() || undefined;
-        const filter = serialize({
-          text: store.text(),
-          options: store.options(),
-          min: store.min(),
-          max: store.max(),
-          bools: store.bools(),
+        const list = await api.customers({
+          q: store.q() || undefined,
+          recordType,
+          filter: query(),
+          offset: store.offset(),
+          limit: store.limit(),
         });
+        const lastOffset =
+          list.count > 0 ? Math.floor((list.count - 1) / list.limit) * list.limit : 0;
+        if (list.offset > lastOffset) {
+          patchState(store, { offset: lastOffset, count: list.count, limit: list.limit });
+          return search();
+        }
+        patchState(store, {
+          loading: false,
+          customers: list.customers,
+          count: list.count,
+          offset: list.offset,
+          limit: list.limit,
+        });
+        return true;
+      } catch (err) {
+        patchState(store, { loading: false, error: apiMessage(err) });
+        return false;
+      }
+    };
+
+    const load = async (resetPage = true) => {
+      if (resetPage) {
+        patchState(store, { offset: 0 });
+      }
+      patchState(store, { loading: true, error: null });
+      try {
+        const recordType = store.recordType() || undefined;
         const [types, catalog, filterable, list] = await Promise.all([
           api.recordTypes(),
           api.attributes(),
           api.filterableAttributes(recordType),
-          api.customers({ q: store.q() || undefined, recordType, filter, limit: 100 }),
+          api.customers({
+            q: store.q() || undefined,
+            recordType,
+            filter: query(),
+            offset: resetPage ? 0 : store.offset(),
+            limit: store.limit(),
+          }),
         ]);
         const scoped = recordType
           ? catalog.attributes.filter((attr) => attr.recordType === recordType)
@@ -184,6 +236,8 @@ export const CustomersStore = signalStore(
           filterable: filterable.attributes,
           customers: list.customers,
           count: list.count,
+          offset: list.offset,
+          limit: list.limit,
         });
         return true;
       } catch (err) {
@@ -194,11 +248,13 @@ export const CustomersStore = signalStore(
 
     return {
       setSearch(q: string) {
-        patchState(store, { q });
+        patchState(store, { q, offset: 0 });
       },
+      search,
       setRecordType(recordType: string) {
         patchState(store, {
           recordType,
+          offset: 0,
           text: {},
           options: {},
           min: {},
@@ -209,11 +265,13 @@ export const CustomersStore = signalStore(
       },
       setTextOp(code: string, op: string) {
         patchState(store, {
+          offset: 0,
           text: { ...store.text(), [code]: { op, value: store.text()[code]?.value ?? '' } },
         });
       },
       setTextValue(code: string, fallbackOp: string, value: string) {
         patchState(store, {
+          offset: 0,
           text: {
             ...store.text(),
             [code]: { op: store.text()[code]?.op ?? fallbackOp, value },
@@ -224,26 +282,27 @@ export const CustomersStore = signalStore(
         const next = new Set(store.options()[code] ?? []);
         if (checked) next.add(value);
         else next.delete(value);
-        patchState(store, { options: { ...store.options(), [code]: [...next] } });
+        patchState(store, { offset: 0, options: { ...store.options(), [code]: [...next] } });
       },
       toggleOption(code: string, value: string) {
         const next = new Set(store.options()[code] ?? []);
         if (next.has(value)) next.delete(value);
         else next.add(value);
-        patchState(store, { options: { ...store.options(), [code]: [...next] } });
+        patchState(store, { offset: 0, options: { ...store.options(), [code]: [...next] } });
       },
       setMin(code: string, value: string) {
-        patchState(store, { min: { ...store.min(), [code]: value } });
+        patchState(store, { offset: 0, min: { ...store.min(), [code]: value } });
       },
       setMax(code: string, value: string) {
-        patchState(store, { max: { ...store.max(), [code]: value } });
+        patchState(store, { offset: 0, max: { ...store.max(), [code]: value } });
       },
       setBool(code: string, value: string) {
-        patchState(store, { bools: { ...store.bools(), [code]: value } });
+        patchState(store, { offset: 0, bools: { ...store.bools(), [code]: value } });
       },
       removeChip(chip: FilterChip) {
         if (chip.kind === 'text') {
           patchState(store, {
+            offset: 0,
             text: {
               ...store.text(),
               [chip.code]: { op: store.text()[chip.code]?.op ?? 'contains', value: '' },
@@ -253,20 +312,40 @@ export const CustomersStore = signalStore(
         if (chip.kind === 'opt' && chip.extra) {
           const next = new Set(store.options()[chip.code] ?? []);
           next.delete(chip.extra);
-          patchState(store, { options: { ...store.options(), [chip.code]: [...next] } });
+          patchState(store, { offset: 0, options: { ...store.options(), [chip.code]: [...next] } });
         }
         if (chip.kind === 'min') {
-          patchState(store, { min: { ...store.min(), [chip.code]: '' } });
+          patchState(store, { offset: 0, min: { ...store.min(), [chip.code]: '' } });
         }
         if (chip.kind === 'max') {
-          patchState(store, { max: { ...store.max(), [chip.code]: '' } });
+          patchState(store, { offset: 0, max: { ...store.max(), [chip.code]: '' } });
         }
         if (chip.kind === 'bool') {
-          patchState(store, { bools: { ...store.bools(), [chip.code]: '' } });
+          patchState(store, { offset: 0, bools: { ...store.bools(), [chip.code]: '' } });
         }
       },
       clearFilters() {
-        patchState(store, { q: '', text: {}, options: {}, min: {}, max: {}, bools: {} });
+        patchState(store, { q: '', text: {}, options: {}, min: {}, max: {}, bools: {}, offset: 0 });
+      },
+      goToPage(page: number) {
+        const next = Math.min(Math.max(1, page), store.pageCount());
+        patchState(store, { offset: (next - 1) * store.limit() });
+        return search();
+      },
+      nextPage() {
+        if (!store.hasNext()) return Promise.resolve(false);
+        patchState(store, { offset: store.offset() + store.limit() });
+        return search();
+      },
+      prevPage() {
+        if (!store.hasPrev()) return Promise.resolve(false);
+        patchState(store, { offset: Math.max(0, store.offset() - store.limit()) });
+        return search();
+      },
+      setLimit(size: number) {
+        const next = Math.min(200, Math.max(1, size));
+        patchState(store, { limit: next, offset: 0 });
+        return search();
       },
       load,
       async create(recordType: string, attributes: Record<string, unknown>) {

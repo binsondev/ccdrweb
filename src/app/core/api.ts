@@ -129,8 +129,8 @@ export class Api {
     for (const filter of query.filter ?? []) {
       params = params.append('filter', filter);
     }
-    if (query.offset) params = params.set('offset', String(query.offset));
-    if (query.limit) params = params.set('limit', String(query.limit));
+    if (query.offset != null) params = params.set('offset', String(query.offset));
+    if (query.limit != null) params = params.set('limit', String(query.limit));
     return this.get<CustomerListResponse>('/api/customers', params);
   }
 

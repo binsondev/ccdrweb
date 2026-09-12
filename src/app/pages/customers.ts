@@ -257,7 +257,11 @@ import { StatusBanner } from '../shared/status-banner';
           }
 
           <p class="text-muted-foreground text-[11px] font-medium tracking-[0.14em] uppercase">
-            {{ store.count() }} records
+            @if (store.count() === 0) {
+              0 records
+            } @else {
+              Showing {{ store.from() }}–{{ store.to() }} of {{ store.count() }}
+            }
           </p>
 
           <section hlmCard>
@@ -303,6 +307,48 @@ import { StatusBanner } from '../shared/status-banner';
               }
             </div>
           </section>
+
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <label class="text-muted-foreground flex items-center gap-2 text-sm">
+              Rows
+              <select
+                hlmInput
+                class="w-20"
+                [value]="store.limit()"
+                [disabled]="store.loading()"
+                (change)="onPageSize($event)"
+              >
+                @for (size of pageSizes; track size) {
+                  <option [value]="size">{{ size }}</option>
+                }
+              </select>
+            </label>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                hlmBtn
+                variant="outline"
+                size="sm"
+                type="button"
+                [disabled]="!store.hasPrev() || store.loading()"
+                (click)="store.prevPage()"
+              >
+                Previous
+              </button>
+              <span class="text-muted-foreground text-sm">
+                Page {{ store.page() }} of {{ store.pageCount() }}
+              </span>
+              <button
+                hlmBtn
+                variant="outline"
+                size="sm"
+                type="button"
+                [disabled]="!store.hasNext() || store.loading()"
+                (click)="store.nextPage()"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     </div>
@@ -414,6 +460,7 @@ export class CustomersPage {
     { value: 'true', label: 'Yes' },
     { value: 'false', label: 'No' },
   ];
+  protected readonly pageSizes = [10, 25, 50];
 
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -489,47 +536,51 @@ export class CustomersPage {
 
   protected onQuery(event: Event) {
     this.store.setSearch((event.target as HTMLInputElement).value);
-    this.scheduleLoad();
+    this.scheduleSearch();
   }
 
   protected onTextOp(code: string, event: Event) {
     this.store.setTextOp(code, (event.target as HTMLSelectElement).value);
-    void this.store.load();
+    void this.store.search();
   }
 
   protected onTextValue(code: string, fallbackOp: string, event: Event) {
     this.store.setTextValue(code, fallbackOp, (event.target as HTMLInputElement).value);
-    this.scheduleLoad();
+    this.scheduleSearch();
   }
 
   protected onOption(code: string, value: string, checked: boolean) {
     this.store.setOption(code, value, checked);
-    void this.store.load();
+    void this.store.search();
   }
 
   protected onMin(code: string, event: Event) {
     this.store.setMin(code, (event.target as HTMLInputElement).value);
-    this.scheduleLoad();
+    this.scheduleSearch();
   }
 
   protected onMax(code: string, event: Event) {
     this.store.setMax(code, (event.target as HTMLInputElement).value);
-    this.scheduleLoad();
+    this.scheduleSearch();
   }
 
   protected onBool(code: string, value: string) {
     this.store.setBool(code, value);
-    void this.store.load();
+    void this.store.search();
   }
 
   protected removeChip(chip: FilterChip) {
     this.store.removeChip(chip);
-    void this.store.load();
+    void this.store.search();
   }
 
   protected clearAll() {
     this.store.clearFilters();
-    void this.store.load();
+    void this.store.search();
+  }
+
+  protected onPageSize(event: Event) {
+    void this.store.setLimit(Number((event.target as HTMLSelectElement).value));
   }
 
   protected openRecord(row: Customer) {
@@ -564,8 +615,8 @@ export class CustomersPage {
     });
   }
 
-  private scheduleLoad() {
+  private scheduleSearch() {
     clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => void this.store.load(), 280);
+    this.searchTimer = setTimeout(() => void this.store.search(), 280);
   }
 }
