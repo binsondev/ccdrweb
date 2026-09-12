@@ -85,7 +85,22 @@ export interface AttributeOption {
   sortOrder: number;
 }
 
+export interface RecordType {
+  code: string;
+  label: string;
+  description: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecordTypeListResponse {
+  tenant: string;
+  recordTypes: RecordType[];
+}
+
 export interface AttributeDefinition {
+  recordType: string;
   code: string;
   label: string;
   group: string | null;
@@ -107,12 +122,14 @@ export interface AttributeDefinition {
 export interface AttributeListResponse {
   tenant: string;
   businessType: string;
+  recordType: string | null;
   hasMatchKey: boolean;
   matchKeyWarning: string | null;
   attributes: AttributeDefinition[];
 }
 
 export interface FilterableAttribute {
+  recordType: string;
   code: string;
   label: string;
   group: string | null;
@@ -125,6 +142,7 @@ export interface Customer {
   id: string;
   tenant: string;
   tenantId: string;
+  recordType: string;
   attributes: Record<string, unknown>;
   sourceBatchId: string | null;
   createdAt: string;
@@ -134,6 +152,7 @@ export interface Customer {
 
 export interface CustomerListResponse {
   tenant: string;
+  recordType: string | null;
   offset: number;
   limit: number;
   count: number;
@@ -186,6 +205,7 @@ export interface MappingVersion {
 export interface MappingProfile {
   id: string;
   tenant: string;
+  recordType: string;
   name: string;
   description: string | null;
   isDefault: boolean;
@@ -197,6 +217,20 @@ export interface MappingProfile {
 export interface MappingProfileListResponse {
   tenant: string;
   profiles: MappingProfile[];
+}
+
+export interface StagedRowError {
+  attributeCode: string | null;
+  excelHeader: string | null;
+  message: string;
+}
+
+export interface StagedRow {
+  id: string;
+  excelRow: number;
+  status: string;
+  values: Record<string, unknown>;
+  errors: StagedRowError[];
 }
 
 export interface UploadBatch {

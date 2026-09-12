@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { Api, apiMessage } from './api';
-import { MappingProfile, UploadBatch } from './models';
+import { MappingProfile, StagedRow, UploadBatch } from './models';
 
 type UploadsState = {
   loading: boolean;
@@ -10,6 +10,7 @@ type UploadsState = {
   notice: string | null;
   batches: UploadBatch[];
   profiles: MappingProfile[];
+  stagedRows: StagedRow[];
 };
 
 const initial: UploadsState = {
@@ -19,6 +20,7 @@ const initial: UploadsState = {
   notice: null,
   batches: [],
   profiles: [],
+  stagedRows: [],
 };
 
 export const UploadsStore = signalStore(
@@ -29,10 +31,14 @@ export const UploadsStore = signalStore(
       patchState(store, { loading: true, error: null });
       try {
         const [uploads, profiles] = await Promise.all([api.uploads(), api.mappingProfiles()]);
+        const latest = uploads.batches[0];
+        const staged = latest?.status === 'Staged' ? latest : undefined;
+        const rows = staged ? (await api.stagedRows(staged.id, 20)).rows : [];
         patchState(store, {
           loading: false,
           batches: uploads.batches,
           profiles: profiles.profiles,
+          stagedRows: rows,
         });
         return true;
       } catch (err) {
@@ -46,10 +52,17 @@ export const UploadsStore = signalStore(
       async upload(mappingProfileId: string, file: File) {
         patchState(store, { saving: true, error: null, notice: null });
         try {
-          const batch = await api.createUpload(mappingProfileId, file);
+          let batch = await api.createUpload(mappingProfileId, file);
+          for (let i = 0; i < 12 && (batch.status === 'Received' || batch.status === 'Parsing'); i++) {
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            batch = await api.getUpload(batch.id);
+          }
           patchState(store, {
             saving: false,
-            notice: `Queued ${file.name}. Status ${batch.status}. Refresh after staging completes.`,
+            notice:
+              batch.missingHeaders.length
+                ? `Staged ${file.name}. Mapping header '${batch.missingHeaders.join(', ')}' was not in the file.`
+                : `Staged ${file.name}. ${batch.validRows} valid, ${batch.invalidRows} invalid.`,
           });
           return load();
         } catch (err) {

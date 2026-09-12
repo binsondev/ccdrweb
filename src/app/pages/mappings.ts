@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -14,6 +14,7 @@ import { StatusBanner } from '../shared/status-banner';
 @Component({
   selector: 'ccdr-mappings',
   imports: [
+    RouterLink,
     HlmBadge,
     HlmButton,
     HlmInput,
@@ -26,10 +27,37 @@ import { StatusBanner } from '../shared/status-banner';
     <div class="grid gap-6">
       <ccdr-status [error]="store.error()" [notice]="store.notice()" />
 
+      <label class="grid max-w-xs gap-1.5 text-sm font-medium">
+        Record type
+        <select
+          hlmInput
+          [value]="store.recordType()"
+          [disabled]="!store.recordTypes().length"
+          (change)="onType($event)"
+        >
+          @if (!store.recordTypes().length) {
+            <option value="">No record types yet</option>
+          }
+          @for (type of store.recordTypes(); track type.code) {
+            <option [value]="type.code">{{ type.label }}</option>
+          }
+        </select>
+      </label>
+
+      @if (!store.loading() && !store.recordTypes().length) {
+        <p class="text-muted-foreground text-sm">
+          Each mapping belongs to one record type.
+          <a routerLink="/app/record-types" class="text-foreground underline-offset-4 hover:underline">
+            Create a record type
+          </a>
+          first.
+        </p>
+      }
+
       <section hlmCard>
         <div hlmCardHeader class="border-border border-b">
           <h2 hlmCardTitle>Profiles</h2>
-          <p hlmCardDescription>Click a mapping to open its overview.</p>
+          <p hlmCardDescription>One Excel mapper per record type. Click a mapping to open its overview.</p>
         </div>
         <div hlmCardContent class="p-0">
           @if (store.loading()) {
@@ -42,6 +70,7 @@ import { StatusBanner } from '../shared/status-banner';
                 <thead hlmTHead>
                   <tr hlmTr>
                     <th hlmTh>Name</th>
+                    <th hlmTh>Record type</th>
                     <th hlmTh>Version</th>
                     <th hlmTh>Bindings</th>
                     <th hlmTh>Status</th>
@@ -60,9 +89,10 @@ import { StatusBanner } from '../shared/status-banner';
                       <td hlmTd>
                         {{ profile.name }}
                         @if (profile.isDefault) {
-                          <span hlmBadge variant="secondary">Default</span>
+                          <span hlmBadge variant="secondary">Default for type</span>
                         }
                       </td>
+                      <td hlmTd>{{ typeLabel(profile.recordType) }}</td>
                       <td hlmTd>v{{ profile.current.versionNumber }}</td>
                       <td hlmTd>{{ profile.current.bindings.length }}</td>
                       <td hlmTd>
@@ -108,13 +138,13 @@ import { StatusBanner } from '../shared/status-banner';
         </div>
       </section>
 
-      @if (auth.canCatalogWrite()) {
+      @if (auth.canCatalogWrite() && store.recordType()) {
         <section hlmCard>
           <div hlmCardHeader>
             <h2 hlmCardTitle>New profile</h2>
             <p hlmCardDescription>
-              Map each Excel header to an attribute. Choose transforms that should run on every cell
-              in that column.
+              This mapper can only bind attributes of {{ typeLabel(store.recordType()) }}. Patient and
+              Vendor never share an Excel.
             </p>
           </div>
           <div hlmCardContent>
@@ -152,6 +182,14 @@ export class MappingsPage {
     });
   }
 
+  protected typeLabel(code: string) {
+    return this.store.recordTypes().find((type) => type.code === code)?.label ?? code;
+  }
+
+  protected onType(event: Event) {
+    void this.store.setRecordType((event.target as HTMLSelectElement).value);
+  }
+
   protected open(profile: MappingProfile) {
     void this.router.navigate(['/app/mappings', profile.id]);
   }
@@ -183,6 +221,7 @@ export class MappingsPage {
       }));
     void this.store
       .create({
+        recordType: this.store.recordType(),
         name,
         headerRowIndex: 1,
         ignoreUnmappedColumns: true,
