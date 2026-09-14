@@ -15,7 +15,7 @@ npm start
 
 Open [http://127.0.0.1:4317](http://127.0.0.1:4317). Sign in with email and password. The SPA stores the access token and refresh token, sends `Authorization: Bearer`, and refreshes on 401.
 
-How to use the screens: [docs/CCDR-User-Manual-v1.0.md](./docs/CCDR-User-Manual-v1.0.md). Product requirements: [docs/CCDR-SRS-v1.0.md](./docs/CCDR-SRS-v1.0.md).
+How to use the screens: [docs/CCDR-User-Manual-v1.0.md](./docs/CCDR-User-Manual-v1.0.md). Product requirements: [docs/CCDR-SRS-v1.0.md](./docs/CCDR-SRS-v1.0.md). Customer-facing proposal: [docs/CCDR-Proposal-v1.0.md](./docs/CCDR-Proposal-v1.0.md).
 
 The live app uses the enterprise Spartan theme (navy sidebar, Helm primitives, light/dark toggle). Customer search is faceted from catalog fields marked filterable. Save a named query on that page to reopen the same filters later — it does not copy customer rows. A mock-only playground remains at [http://127.0.0.1:4317/prototype/login](http://127.0.0.1:4317/prototype/login).
 
