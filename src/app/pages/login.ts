@@ -5,7 +5,6 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { AuthStore } from '../core/auth.store';
 import { ThemeStore } from '../core/theme.store';
-import { DEV_USERS } from '../core/models';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
@@ -66,8 +65,7 @@ import { StatusBanner } from '../shared/status-banner';
             </p>
             <h2 class="mt-1 text-2xl font-semibold tracking-tight">Email and password</h2>
             <p class="text-muted-foreground mt-2 mb-6 text-sm leading-relaxed">
-              Use your workspace email. Seeded local accounts share the password
-              <span class="text-foreground font-mono">LocalDev!23</span>.
+              Use your workspace email and password.
             </p>
 
             <ccdr-status [error]="auth.error()" />
@@ -97,27 +95,6 @@ import { StatusBanner } from '../shared/status-banner';
                 {{ auth.loading() ? 'Signing in…' : 'Sign in' }}
               </button>
             </form>
-
-            <p class="text-muted-foreground mt-6 mb-2 text-[11px] font-semibold tracking-[0.16em] uppercase">
-              Fill a seeded email
-            </p>
-            <div class="grid gap-2">
-              @for (user of users; track user.email) {
-                <button
-                  hlmBtn
-                  variant="outline"
-                  type="button"
-                  class="h-auto justify-start py-3 text-left"
-                  [disabled]="auth.loading()"
-                  (click)="fill(user.email)"
-                >
-                  <span class="grid">
-                    <span>{{ user.label }}</span>
-                    <span class="text-muted-foreground font-normal">{{ user.email }} · {{ user.hint }}</span>
-                  </span>
-                </button>
-              }
-            </div>
           </div>
         </section>
       </div>
@@ -127,16 +104,11 @@ import { StatusBanner } from '../shared/status-banner';
 export class LoginPage {
   protected readonly auth = inject(AuthStore);
   protected readonly theme = inject(ThemeStore);
-  protected readonly users = DEV_USERS;
-  protected readonly model = signal({ username: 'acme.admin@local', password: '' });
+  protected readonly model = signal({ username: '', password: '' });
   protected readonly loginForm = form(this.model, (schema) => {
     required(schema.username);
     required(schema.password);
   });
-
-  protected fill(email: string) {
-    this.model.update((current) => ({ ...current, username: email }));
-  }
 
   protected onSubmit(event: Event) {
     event.preventDefault();

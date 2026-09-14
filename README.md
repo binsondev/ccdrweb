@@ -13,7 +13,7 @@ npm install
 npm start
 ```
 
-Open [http://127.0.0.1:4317](http://127.0.0.1:4317). Sign in with email and password. Seeded local users (for example `acme.admin@local`) use password `LocalDev!23`. The SPA stores the access token and refresh token, sends `Authorization: Bearer`, and refreshes on 401.
+Open [http://127.0.0.1:4317](http://127.0.0.1:4317). Sign in with email and password. The SPA stores the access token and refresh token, sends `Authorization: Bearer`, and refreshes on 401.
 
 The live app uses the enterprise Spartan theme (navy sidebar, Helm primitives, light/dark toggle). Customer search is faceted from catalog fields marked filterable. A mock-only playground remains at [http://127.0.0.1:4317/prototype/login](http://127.0.0.1:4317/prototype/login).
 

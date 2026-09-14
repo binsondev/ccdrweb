@@ -314,11 +314,3 @@ export interface ApiProblem {
   errors?: Record<string, string[]>;
 }
 
-export const DEV_USERS = [
-  { email: 'platform@local', label: 'Platform admin', hint: 'Create tenants and first admins' },
-  { email: 'acme.admin@local', label: 'Acme admin', hint: 'Hospital tenant catalog' },
-  { email: 'acme.upload@local', label: 'Acme uploader', hint: 'Customers and Excel uploads' },
-  { email: 'acme.query@local', label: 'Acme query', hint: 'Search customers only' },
-  { email: 'globex.admin@local', label: 'Globex admin', hint: 'Shop tenant catalog' },
-  { email: 'dual@local', label: 'Dual membership', hint: 'Acme and Globex' },
-] as const;
