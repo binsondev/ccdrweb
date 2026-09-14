@@ -251,7 +251,7 @@ export class Shell {
     return {
       kicker: 'Records',
       title: 'Customer search',
-        blurb: 'Record type is optional. Filters and match keys stay scoped to each type.',
+        blurb: 'Save a named query to reopen these filters. Customer rows stay in one place.',
     };
   }
 }

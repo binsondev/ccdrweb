@@ -10,7 +10,7 @@ import { HlmTableImports } from '@spartan-ng/helm/table';
 import { AuthStore } from '../core/auth.store';
 import { CustomersStore, type FilterChip } from '../core/customers.store';
 import { displayValue, operatorLabel } from '../core/format';
-import { Customer, FilterableAttribute } from '../core/models';
+import { Customer, FilterableAttribute, SavedSearch } from '../core/models';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
@@ -57,6 +57,88 @@ import { StatusBanner } from '../shared/status-banner';
 
       <div class="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
         <aside class="lg:sticky lg:top-4 lg:block" [class.hidden]="!panelOpen()">
+          <div class="grid gap-4">
+          <section hlmCard size="sm">
+            <div hlmCardHeader class="border-border border-b">
+              <h2 hlmCardTitle>Saved searches</h2>
+              <p hlmCardDescription>
+                Stores this query, not a copy of the rows. Opening it searches live customers again.
+              </p>
+            </div>
+            <div hlmCardContent class="grid gap-3 py-4">
+              <label class="grid gap-1.5 text-sm font-medium">
+                Name
+                <input
+                  hlmInput
+                  type="text"
+                  maxlength="120"
+                  placeholder="e.g. Seniors in ICU"
+                  [value]="store.saveName()"
+                  (input)="onSaveName($event)"
+                />
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  hlmBtn
+                  size="sm"
+                  type="button"
+                  [disabled]="store.savingSearch() || !store.saveName().trim()"
+                  (click)="store.saveCurrentSearch()"
+                >
+                  {{ store.savingSearch() ? 'Saving…' : 'Save this search' }}
+                </button>
+                @if (store.activeSavedSearch(); as active) {
+                  <button
+                    hlmBtn
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    [disabled]="store.savingSearch()"
+                    (click)="store.updateActiveSearch()"
+                  >
+                    Update {{ active.name }}
+                  </button>
+                }
+              </div>
+              @if (store.savedLoading() && !store.savedSearches().length) {
+                <p class="text-muted-foreground text-sm">Loading saved searches…</p>
+              } @else if (!store.savedSearches().length) {
+                <p class="text-muted-foreground text-sm">
+                  No saved searches yet. Set filters, name the query, then save.
+                </p>
+              } @else {
+                <ul class="grid gap-2">
+                  @for (saved of store.savedSearches(); track saved.id) {
+                    <li
+                      class="border-border rounded-md border p-2"
+                      [class.border-primary]="store.activeSavedId() === saved.id"
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <button
+                          class="min-w-0 flex-1 text-left"
+                          type="button"
+                          (click)="store.applySavedSearch(saved.id)"
+                        >
+                          <span class="block text-sm font-medium">{{ saved.name }}</span>
+                          <span class="text-muted-foreground block text-xs">{{ savedSummary(saved) }}</span>
+                        </button>
+                        <button
+                          hlmBtn
+                          variant="ghost"
+                          size="xs"
+                          type="button"
+                          [disabled]="store.savingSearch()"
+                          (click)="store.deleteSavedSearch(saved.id)"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </section>
           <section hlmCard size="sm">
             <div hlmCardHeader class="border-border border-b">
               <div class="flex items-center justify-between gap-2">
@@ -234,6 +316,7 @@ import { StatusBanner } from '../shared/status-banner';
               }
             </div>
           </section>
+          </div>
         </aside>
 
         <section class="grid min-w-0 gap-4">
@@ -552,6 +635,7 @@ export class CustomersPage {
     effect(() => {
       if (this.auth.tenantSlug()) {
         void this.store.load();
+        void this.store.loadSavedSearches();
       }
     });
   }
@@ -610,6 +694,20 @@ export class CustomersPage {
 
   protected onQuery(event: Event) {
     this.store.setSearch((event.target as HTMLInputElement).value);
+  }
+
+  protected onSaveName(event: Event) {
+    this.store.setSaveName((event.target as HTMLInputElement).value);
+  }
+
+  protected savedSummary(saved: SavedSearch) {
+    const parts: string[] = [];
+    parts.push(saved.recordType ? this.store.typeLabel()(saved.recordType) : 'All types');
+    if (saved.q) parts.push(`“${saved.q}”`);
+    const count = saved.filter?.length ?? 0;
+    if (count === 1) parts.push('1 filter');
+    else if (count > 1) parts.push(`${count} filters`);
+    return parts.join(' · ');
   }
 
   protected onTextOp(code: string, event: Event) {

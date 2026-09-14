@@ -3,7 +3,7 @@ import { patchState, signalStore, withComputed, withMethods, withState } from '@
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { catchError, debounceTime, distinctUntilChanged, EMPTY, of, pipe, skip, switchMap, tap } from 'rxjs';
 import { Api, apiMessage, saveBlob } from './api';
-import { AttributeDefinition, Customer, CustomerListResponse, FilterableAttribute, RecordType } from './models';
+import { AttributeDefinition, Customer, CustomerListResponse, FilterableAttribute, RecordType, SavedSearch } from './models';
 import { operatorLabel } from './format';
 
 export type TextDraft = { op: string; value: string };
@@ -52,6 +52,11 @@ type CustomersState = {
   filterable: FilterableAttribute[];
   matchKeyWarning: string | null;
   exporting: boolean;
+  savedSearches: SavedSearch[];
+  savedLoading: boolean;
+  savingSearch: boolean;
+  saveName: string;
+  activeSavedId: string | null;
 };
 
 const initial: CustomersState = {
@@ -75,6 +80,11 @@ const initial: CustomersState = {
   filterable: [],
   matchKeyWarning: null,
   exporting: false,
+  savedSearches: [],
+  savedLoading: false,
+  savingSearch: false,
+  saveName: '',
+  activeSavedId: null,
 };
 
 function serialize(state: {
@@ -105,6 +115,50 @@ function serialize(state: {
     if (value) filters.push(`${code}:eq:${value}`);
   }
   return filters;
+}
+
+const RANGE_TYPES = new Set(['Integer', 'Decimal', 'Date', 'DateTime']);
+const KNOWN_OPS = new Set(['eq', 'contains', 'gt', 'gte', 'lt', 'lte']);
+
+export function parseSavedFilter(raw: string): { code: string; op: string; value: string } | null {
+  const parts = raw.split(':');
+  if (parts.length < 2 || !parts[0].trim()) return null;
+  if (parts.length >= 3 && KNOWN_OPS.has(parts[1])) {
+    return { code: parts[0].trim(), op: parts[1], value: parts.slice(2).join(':') };
+  }
+  return { code: parts[0].trim(), op: 'eq', value: parts.slice(1).join(':') };
+}
+
+export function hydrateFilters(
+  filter: string[],
+  filterable: FilterableAttribute[],
+): Pick<CustomersState, 'text' | 'options' | 'min' | 'max' | 'bools'> {
+  const byCode = new Map(filterable.map((attr) => [attr.code, attr]));
+  const text: Record<string, TextDraft> = {};
+  const options: Record<string, string[]> = {};
+  const min: Record<string, string> = {};
+  const max: Record<string, string> = {};
+  const bools: Record<string, string> = {};
+  for (const raw of filter) {
+    const parsed = parseSavedFilter(raw);
+    if (!parsed) continue;
+    const type = byCode.get(parsed.code)?.dataType;
+    if (type === 'Dropdown') {
+      options[parsed.code] = [...(options[parsed.code] ?? []), parsed.value];
+    } else if (type === 'Boolean') {
+      bools[parsed.code] = parsed.value;
+    } else if (type && RANGE_TYPES.has(type)) {
+      if (parsed.op === 'gte' || parsed.op === 'gt') min[parsed.code] = parsed.value;
+      else if (parsed.op === 'lte' || parsed.op === 'lt') max[parsed.code] = parsed.value;
+      else {
+        min[parsed.code] = parsed.value;
+        max[parsed.code] = parsed.value;
+      }
+    } else {
+      text[parsed.code] = { op: parsed.op || 'contains', value: parsed.value };
+    }
+  }
+  return { text, options, min, max, bools };
 }
 
 export const CustomersStore = signalStore(
@@ -192,6 +246,9 @@ export const CustomersStore = signalStore(
           bools: store.bools(),
         }),
       }),
+    ),
+    activeSavedSearch: computed(
+      () => store.savedSearches().find((item) => item.id === store.activeSavedId()) ?? null,
     ),
   })),
   withMethods((store, api = inject(Api)) => {
@@ -333,6 +390,30 @@ export const CustomersStore = signalStore(
       }
     };
 
+    const loadSavedSearches = async () => {
+      patchState(store, { savedLoading: true });
+      try {
+        const list = await api.savedSearches();
+        const active = store.activeSavedId();
+        patchState(store, {
+          savedLoading: false,
+          savedSearches: list.searches,
+          activeSavedId: active && list.searches.some((item) => item.id === active) ? active : null,
+        });
+        return true;
+      } catch (err) {
+        patchState(store, { savedLoading: false, error: apiMessage(err) });
+        return false;
+      }
+    };
+
+    const writeBody = (name: string) => ({
+      name,
+      recordType: store.recordType() || null,
+      q: store.q() || null,
+      filter: query(),
+    });
+
     return {
       setSearch(q: string) {
         patchState(store, { q, offset: 0 });
@@ -413,7 +494,16 @@ export const CustomersStore = signalStore(
         }
       },
       clearFilters() {
-        patchState(store, { q: '', text: {}, options: {}, min: {}, max: {}, bools: {}, offset: 0 });
+        patchState(store, {
+          q: '',
+          text: {},
+          options: {},
+          min: {},
+          max: {},
+          bools: {},
+          offset: 0,
+          activeSavedId: null,
+        });
       },
       goToPage(page: number) {
         const next = Math.min(Math.max(1, page), store.pageCount());
@@ -436,6 +526,92 @@ export const CustomersStore = signalStore(
         searchNow(undefined);
       },
       load,
+      loadSavedSearches,
+      setSaveName(name: string) {
+        patchState(store, { saveName: name });
+      },
+      async applySavedSearch(id: string) {
+        const saved = store.savedSearches().find((item) => item.id === id);
+        if (!saved) return false;
+        patchState(store, {
+          recordType: saved.recordType ?? '',
+          q: saved.q ?? '',
+          offset: 0,
+          text: {},
+          options: {},
+          min: {},
+          max: {},
+          bools: {},
+          activeSavedId: saved.id,
+          saveName: saved.name,
+          error: null,
+          notice: null,
+        });
+        await refreshCatalog();
+        patchState(store, {
+          ...hydrateFilters(saved.filter ?? [], store.filterable()),
+          activeSavedId: saved.id,
+        });
+        return load(true);
+      },
+      async saveCurrentSearch() {
+        const name = store.saveName().trim();
+        if (!name) {
+          patchState(store, { error: 'Name this search before saving.' });
+          return false;
+        }
+        patchState(store, { savingSearch: true, error: null, notice: null });
+        try {
+          const saved = await api.createSavedSearch(writeBody(name));
+          patchState(store, {
+            savingSearch: false,
+            saveName: '',
+            activeSavedId: saved.id,
+            notice: `Saved “${saved.name}”. Opening it runs this query live — customer rows are not copied.`,
+          });
+          await loadSavedSearches();
+          return true;
+        } catch (err) {
+          patchState(store, { savingSearch: false, error: apiMessage(err) });
+          return false;
+        }
+      },
+      async updateActiveSearch() {
+        const active = store.savedSearches().find((item) => item.id === store.activeSavedId());
+        if (!active) return false;
+        const name = store.saveName().trim() || active.name;
+        patchState(store, { savingSearch: true, error: null, notice: null });
+        try {
+          const saved = await api.updateSavedSearch(active.id, writeBody(name));
+          patchState(store, {
+            savingSearch: false,
+            saveName: '',
+            activeSavedId: saved.id,
+            notice: `Updated “${saved.name}”.`,
+          });
+          await loadSavedSearches();
+          return true;
+        } catch (err) {
+          patchState(store, { savingSearch: false, error: apiMessage(err) });
+          return false;
+        }
+      },
+      async deleteSavedSearch(id: string) {
+        patchState(store, { savingSearch: true, error: null, notice: null });
+        try {
+          await api.deleteSavedSearch(id);
+          patchState(store, {
+            savingSearch: false,
+            activeSavedId: store.activeSavedId() === id ? null : store.activeSavedId(),
+            notice: 'Saved search removed. Customer records were not deleted.',
+          });
+          await loadSavedSearches();
+          return true;
+        } catch (err) {
+          patchState(store, { savingSearch: false, error: apiMessage(err) });
+          return false;
+        }
+      },
       async exportResults(format: 'xlsx' | 'csv') {
         patchState(store, { exporting: true, error: null, notice: null });
         try {

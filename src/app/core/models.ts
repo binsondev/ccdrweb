@@ -168,6 +168,22 @@ export interface CustomerListResponse {
   customers: Customer[];
 }
 
+export interface SavedSearch {
+  id: string;
+  name: string;
+  recordType: string | null;
+  q: string | null;
+  filters: { code: string; op: string; value: string }[];
+  filter: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedSearchListResponse {
+  tenant: string;
+  searches: SavedSearch[];
+}
+
 export const CELL_TRANSFORMS = ['Trim', 'Upper', 'Lower', 'DigitsOnly'] as const;
 export type CellTransform = (typeof CELL_TRANSFORMS)[number];
 
