@@ -1,7 +1,7 @@
 # CCDR Angular staging on this machine.
 # Serves the SPA and proxies /api + /health to ccdr-staging-api (same origin).
 # Also joins fleetstalk-staging so FleetStalk nginx can publish
-# http://ccdr.copass.in/ on port 80. Direct port 8081 still works.
+# http://coreextract.copass.in/ on port 80. Direct port 8081 still works.
 #
 #   cd infra/stagingdeployment
 #   docker compose up -d --build
