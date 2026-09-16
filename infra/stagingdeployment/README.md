@@ -6,7 +6,8 @@ The SPA calls `/api` and `/health` with relative URLs (same as `ng serve` + `pro
 
 | URL | What |
 | --- | --- |
-| `http://<public-ip>:8081/` | Angular app |
+| `http://ccdr.copass.in/` | Angular app on port 80 (FleetStalk nginx) |
+| `http://<public-ip>:8081/` | Angular app (this container, direct) |
 | `http://<public-ip>:8081/api/...` | proxied CCDR API |
 | `http://<public-ip>:8081/health` | proxied API liveness |
 
