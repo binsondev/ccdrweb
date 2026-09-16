@@ -15,6 +15,13 @@ npm start
 
 Open [http://127.0.0.1:4317](http://127.0.0.1:4317). Sign in with email and password. The SPA stores the access token and refresh token, sends `Authorization: Bearer`, and refreshes on 401.
 
+## Staging on this machine
+
+GitHub Actions (`staging-deploy.yml`) builds a Docker image and serves the SPA from nginx on **port 8081**. That nginx also proxies `/api` and `/health` to `ccdr-api` (same origin as local `proxy.conf.json`). Deploy **ccdrapi** first.
+
+- App: `http://<public-ip>:8081/`
+- API (direct): `http://<public-ip>:7421/`
+
 The live app uses the enterprise Spartan theme (navy sidebar, Helm primitives, light/dark toggle). Customer search is faceted from catalog fields marked filterable. A mock-only playground remains at [http://127.0.0.1:4317/prototype/login](http://127.0.0.1:4317/prototype/login).
 
 ## MCP (Cursor Desktop)

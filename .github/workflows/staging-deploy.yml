@@ -1,0 +1,74 @@
+name: Staging deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: staging-web-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build Angular image and deploy behind nginx
+    runs-on: self-hosted
+    timeout-minutes: 45
+    env:
+      GIT_SHA: ${{ github.sha }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
+    defaults:
+      run:
+        working-directory: infra/stagingdeployment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Docker
+        working-directory: ${{ github.workspace }}
+        run: docker info
+
+      - name: Wait for CCDR API
+        working-directory: ${{ github.workspace }}
+        run: |
+          n=1
+          while [ "$n" -le 24 ]; do
+            if curl -fsS -o /dev/null http://127.0.0.1:7421/health; then
+              echo "CCDR API is up on :7421"
+              exit 0
+            fi
+            echo "waiting for CCDR API ($n/24)"
+            n=$((n + 1))
+            sleep 5
+          done
+          echo "CCDR API is not reachable on :7421. Deploy ccdrapi first."
+          docker ps --filter name=ccdr-staging
+          exit 1
+
+      - name: Ensure compose network
+        run: docker network create ccdr-staging 2>/dev/null || true
+
+      - name: Build web image
+        run: docker compose build ccdr-web
+
+      - name: Deploy web nginx
+        run: docker compose up -d --no-build ccdr-web
+
+      - name: Health check SPA and API proxy
+        run: |
+          n=1
+          while [ "$n" -le 20 ]; do
+            if curl -fsS -o /dev/null http://127.0.0.1:8081/ \
+              && curl -fsS -o /dev/null http://127.0.0.1:8081/health; then
+              docker compose ps
+              exit 0
+            fi
+            echo "waiting for CCDR web ($n/20)"
+            n=$((n + 1))
+            sleep 3
+          done
+          docker compose ps
+          docker compose logs --tail=80
+          exit 1

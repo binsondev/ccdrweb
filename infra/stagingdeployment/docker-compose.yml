@@ -1,0 +1,32 @@
+# CCDR Angular staging on this machine.
+# Serves the SPA and proxies /api + /health to ccdr-staging-api (same origin).
+# Public nginx: http://<public-ip>:8081/
+#
+#   cd infra/stagingdeployment
+#   docker compose up -d --build
+
+name: ccdr-staging-web
+
+services:
+  ccdr-web:
+    build:
+      context: ../..
+      dockerfile: infra/stagingdeployment/docker/web.Dockerfile
+    image: ccdr-staging-web:${GIT_SHA:-local}
+    container_name: ccdr-staging-web
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:${CCDR_WEB_PORT:-8081}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+    networks:
+      - ccdr-staging
+
+networks:
+  ccdr-staging:
+    name: ccdr-staging
+    external: true
