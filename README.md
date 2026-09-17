@@ -2,6 +2,8 @@
 
 Angular 22 SPA for the Central Customer Data Repository. Tenant Admin defines **record types**, then attributes and one Excel mapper per type. Customers are bags of those values. Search can omit type. Match keys never cross types.
 
+Clone: `https://github.com/binsondev/ccdrweb.git`
+
 The UI is zoneless and signal-based (Angular signals, Signal Forms, NgRx Signal Store). Components use [Spartan UI](https://www.spartan.ng/) Helm primitives.
 
 ## Run locally

@@ -1,6 +1,10 @@
 {
   "name": "ccdr",
   "version": "0.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/binsondev/ccdrweb.git"
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 4317 --host 127.0.0.1",
