@@ -23,6 +23,8 @@ import type {
   PlatformTenant,
   RecordType,
   RecordTypeListResponse,
+  SavedSearch,
+  SavedSearchListResponse,
   SettingsResponse,
   StagedRow,
   UploadBatch,
@@ -175,6 +177,25 @@ export class Api {
       params = params.append('filter', filter);
     }
     return this.download('/api/customers/export', params, `customers.${query.format}`);
+  }
+
+  savedSearches() {
+    return this.get<SavedSearchListResponse>('/api/saved-searches');
+  }
+
+  createSavedSearch(body: { name: string; recordType?: string | null; q?: string | null; filter?: string[] }) {
+    return this.post<SavedSearch>('/api/saved-searches', body);
+  }
+
+  updateSavedSearch(
+    id: string,
+    body: { name: string; recordType?: string | null; q?: string | null; filter?: string[] },
+  ) {
+    return this.put<SavedSearch>(`/api/saved-searches/${id}`, { id, ...body });
+  }
+
+  deleteSavedSearch(id: string) {
+    return this.delete(`/api/saved-searches/${id}`);
   }
 
   mappingProfiles(recordType?: string | null) {
