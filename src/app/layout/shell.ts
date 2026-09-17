@@ -1,4 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { HlmBadge } from '@spartan-ng/helm/badge';
@@ -8,14 +9,15 @@ import { filter, map, startWith } from 'rxjs';
 import { AuthStore } from '../core/auth.store';
 import { ThemeStore } from '../core/theme.store';
 import { roleLabel } from '../core/format';
+import { BrandMark } from '../shared/brand-mark';
 
 @Component({
   selector: 'ccdr-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmBadge, HlmButton, HlmSeparator],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmBadge, HlmButton, HlmSeparator, BrandMark],
   template: `
-    <div class="bg-background text-foreground min-h-dvh md:grid md:grid-cols-[15.5rem_minmax(0,1fr)]">
+    <div class="bg-background text-foreground min-h-dvh md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
       <header class="border-border flex items-center justify-between border-b px-4 py-3 md:hidden">
-        <p class="text-sm font-semibold tracking-tight">CCDR</p>
+        <ccdr-brand-mark />
         <button hlmBtn variant="outline" size="sm" type="button" (click)="menuOpen.set(!menuOpen())">
           {{ menuOpen() ? 'Close' : 'Menu' }}
         </button>
@@ -27,20 +29,10 @@ import { roleLabel } from '../core/format';
       >
         <a
           [routerLink]="home()"
-          class="flex items-center gap-3 text-inherit no-underline"
+          class="text-inherit no-underline"
           (click)="menuOpen.set(false)"
         >
-          <span
-            class="bg-sidebar-primary text-sidebar-primary-foreground grid size-8 place-items-center rounded-md text-[11px] font-semibold"
-          >
-            CC
-          </span>
-          <span>
-            <span class="block text-sm font-semibold tracking-tight">CCDR</span>
-            <span class="text-sidebar-foreground/50 text-[10px] tracking-[0.18em] uppercase">
-              Customer master
-            </span>
-          </span>
+          <ccdr-brand-mark />
         </a>
 
         @if (auth.tenants().length) {
@@ -119,10 +111,17 @@ import { roleLabel } from '../core/format';
 })
 export class Shell {
   private readonly router = inject(Router);
+  private readonly pageTitle = inject(Title);
   protected readonly auth = inject(AuthStore);
   protected readonly theme = inject(ThemeStore);
   protected readonly menuOpen = signal(false);
   protected readonly roleLabel = roleLabel;
+
+  constructor() {
+    effect(() => {
+      this.pageTitle.setTitle(`${this.title()} · CoreExtract`);
+    });
+  }
 
   private readonly url = toSignal(
     this.router.events.pipe(

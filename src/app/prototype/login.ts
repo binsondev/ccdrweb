@@ -1,13 +1,13 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmSeparator } from '@spartan-ng/helm/separator';
+import { BrandMark } from '../shared/brand-mark';
 import { PrototypeThemeStore } from './theme';
 
 @Component({
   selector: 'ccdr-proto-login',
-  imports: [RouterLink, HlmBadge, HlmButton, HlmSeparator],
+  imports: [RouterLink, HlmButton, HlmSeparator, BrandMark],
   template: `
     <div class="ccdr-proto bg-background text-foreground min-h-dvh" [class.dark]="theme.dark()">
       <div
@@ -22,9 +22,7 @@ import { PrototypeThemeStore } from './theme';
       <div class="grid min-h-[calc(100dvh-2rem)] lg:grid-cols-2">
         <section class="bg-sidebar text-sidebar-foreground hidden flex-col justify-between px-10 py-12 lg:flex">
           <div>
-            <span hlmBadge variant="outline" class="border-sidebar-border text-sidebar-foreground">
-              CCDR
-            </span>
+            <ccdr-brand-mark variant="lockup" />
             <h1 class="mt-6 max-w-lg text-4xl font-semibold tracking-tight">
               Enterprise customer master for multi-tenant operations.
             </h1>

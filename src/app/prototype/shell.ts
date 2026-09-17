@@ -5,15 +5,16 @@ import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { filter, map, startWith } from 'rxjs';
+import { BrandMark } from '../shared/brand-mark';
 import { protoNav } from './mock';
 import { PrototypeThemeStore } from './theme';
 
 @Component({
   selector: 'ccdr-proto-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmBadge, HlmButton, HlmSeparator],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, HlmBadge, HlmButton, HlmSeparator, BrandMark],
   template: `
     <div
-      class="ccdr-proto bg-background text-foreground min-h-dvh md:grid md:grid-cols-[15.5rem_minmax(0,1fr)]"
+      class="ccdr-proto bg-background text-foreground min-h-dvh md:grid md:grid-cols-[17rem_minmax(0,1fr)]"
       [class.dark]="theme.dark()"
     >
       <div
@@ -24,7 +25,7 @@ import { PrototypeThemeStore } from './theme';
       </div>
 
       <header class="border-border flex items-center justify-between border-b px-4 py-3 md:hidden">
-        <p class="text-sm font-semibold tracking-tight">CCDR</p>
+        <ccdr-brand-mark />
         <button hlmBtn variant="outline" size="sm" type="button" (click)="menuOpen.set(!menuOpen())">
           {{ menuOpen() ? 'Close' : 'Menu' }}
         </button>
@@ -36,20 +37,10 @@ import { PrototypeThemeStore } from './theme';
       >
         <a
           routerLink="/prototype/search"
-          class="flex items-center gap-3 text-inherit no-underline"
+          class="text-inherit no-underline"
           (click)="menuOpen.set(false)"
         >
-          <span
-            class="bg-sidebar-primary text-sidebar-primary-foreground grid size-8 place-items-center rounded-md text-[11px] font-semibold"
-          >
-            CC
-          </span>
-          <span>
-            <span class="block text-sm font-semibold tracking-tight">CCDR</span>
-            <span class="text-sidebar-foreground/50 text-[10px] tracking-[0.18em] uppercase">
-              Customer master
-            </span>
-          </span>
+          <ccdr-brand-mark />
         </a>
 
         <div class="border-sidebar-border bg-sidebar-accent/50 mt-5 rounded-md border px-3 py-2.5">
