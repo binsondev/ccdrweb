@@ -11,6 +11,7 @@ import { AuthStore } from '../core/auth.store';
 import { CustomersStore, type FilterChip } from '../core/customers.store';
 import { displayValue, operatorLabel } from '../core/format';
 import { Customer, FilterableAttribute, SavedSearch } from '../core/models';
+import { CustomerChat } from '../customers/customer-chat';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
@@ -21,6 +22,7 @@ import { StatusBanner } from '../shared/status-banner';
     HlmInput,
     HlmLabel,
     HlmSeparator,
+    CustomerChat,
     StatusBanner,
     ...HlmAlertImports,
     ...HlmCardImports,
@@ -320,6 +322,7 @@ import { StatusBanner } from '../shared/status-banner';
         </aside>
 
         <section class="grid min-w-0 gap-4">
+          <ccdr-customer-chat />
           <input
             hlmInput
             type="search"

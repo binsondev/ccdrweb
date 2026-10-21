@@ -15,7 +15,13 @@ npm install
 npm start
 ```
 
+`npm start` serves the SPA and the AG-UI search agent. The dev server proxies `/api` and `/health` to the API, and `/ag-ui` to the agent on port 4318. `npm run start:web` is the SPA alone. `npm run start:agent` is the agent alone.
+
 Open [http://127.0.0.1:4317](http://127.0.0.1:4317). Sign in with email and password. The SPA stores the access token and refresh token, sends `Authorization: Bearer`, and refreshes on 401.
+
+On **Records → Customers**, **Ask CoreExtract** turns a question into the same `recordType`, `q`, and `filter=code:op:value` query a saved search uses, then the existing customer grid reloads with `GET /api/customers`.
+
+Optional model: set `GEMINI_API_KEY` in `frontend/.env` (see `.env.example`). `GEMINI_MODEL` defaults to `gemini-flash-latest`. With no key, or if Gemini cannot be reached, the agent maps the question locally and the grid still updates. Do not commit the key.
 
 How to use the screens: [docs/CCDR-User-Manual-v1.0.md](./docs/CCDR-User-Manual-v1.0.md). Product requirements: [docs/CCDR-SRS-v1.0.md](./docs/CCDR-SRS-v1.0.md). Customer-facing proposal: [docs/CCDR-Proposal-v1.0.md](./docs/CCDR-Proposal-v1.0.md).
 

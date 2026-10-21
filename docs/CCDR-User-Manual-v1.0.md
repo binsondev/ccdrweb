@@ -161,6 +161,7 @@ You can cancel a batch that is not committed.
 - Optional **Record type**. Leave “All types” to search across types.
 - Filters on the left are only fields marked filterable. Every selected filter applies together.
 - The top search box looks for text **anywhere** in the bag.
+- **Ask CoreExtract** accepts a plain-language question (“seniors in ICU”, “patients named Sharma”, “show everyone”). The answer updates this same grid. It does not keep a separate list of people.
 - Click a row for the full record. Tenant Admin and Uploader can **Edit attributes** or **New record**.
 - **Export Excel** / **Export CSV** uses the same filters as the table. Exports are audited. The button appears only if you may export.
 

@@ -7,7 +7,10 @@
   },
   "scripts": {
     "ng": "ng",
-    "start": "ng serve --port 4317 --host 127.0.0.1",
+    "start": "node scripts/dev.mjs",
+    "start:web": "ng serve --port 4317 --host 127.0.0.1",
+    "start:agent": "node agent/server.mjs",
+    "test:agent": "node --test agent/*.test.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
@@ -15,6 +18,7 @@
   "private": true,
   "packageManager": "npm@11.19.1",
   "dependencies": {
+    "@ag-ui/client": "^1.0.2",
     "@angular/cdk": "^22.1.6",
     "@angular/common": "^22.0.0",
     "@angular/compiler": "^22.0.0",
@@ -22,6 +26,7 @@
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
+    "@copilotkit/angular": "^0.6.0",
     "@ng-icons/core": "^32.2.0",
     "@ng-icons/lucide": "^32.2.0",
     "@ngrx/signals": "^22.0.1",
@@ -30,7 +35,8 @@
     "clsx": "^2.1.1",
     "rxjs": "~7.8.0",
     "tailwind-merge": "^3.5.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@angular/build": "^22.0.5",

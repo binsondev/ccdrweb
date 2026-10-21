@@ -554,6 +554,38 @@ export const CustomersStore = signalStore(
         });
         return load(true);
       },
+      async applyAgentSearch(criteria: { recordType?: string | null; q?: string | null; filter?: string[] | null }) {
+        const recordType = (criteria.recordType ?? '').trim();
+        const q = (criteria.q ?? '').trim();
+        const filter = (criteria.filter ?? []).map((item) => item.trim()).filter(Boolean);
+        patchState(store, {
+          recordType,
+          q,
+          offset: 0,
+          text: {},
+          options: {},
+          min: {},
+          max: {},
+          bools: {},
+          activeSavedId: null,
+          error: null,
+          notice: null,
+        });
+        await refreshCatalog();
+        patchState(store, hydrateFilters(filter, store.filterable()));
+        const ok = await load(true);
+        if (!ok) {
+          patchState(store, { customers: [], count: 0 });
+        }
+        return {
+          ok,
+          count: store.count(),
+          recordType: store.recordType(),
+          q: store.q(),
+          filter: query(),
+          error: store.error(),
+        };
+      },
       async saveCurrentSearch() {
         const name = store.saveName().trim();
         if (!name) {
