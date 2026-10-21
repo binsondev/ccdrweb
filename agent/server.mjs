@@ -85,27 +85,35 @@ async function decide(input) {
   const last = [...messages].reverse().find((message) => message?.role === 'user' || message?.role === 'tool');
   if (last?.role === 'tool') {
     const fallback = summarizeToolResult(contentText(last));
-    const gemini = await tryGemini(messages, catalog, false);
-    return { text: annotate(gemini?.text?.trim() || fallback, gemini) };
+    const gemini = await tryGemini(messages, catalog, false, { omitFunctionCalls: true });
+    if (gemini?.mode === 'gemini' && gemini.text?.trim()) return { text: gemini.text.trim() };
+    return { text: fallback };
   }
 
   const question = contentText([...messages].reverse().find((message) => message?.role === 'user'));
   const local = interpretQuestion(question, catalog);
-  if (local.chatOnly) return { text: local.text };
+  if (local.chatOnly) {
+    const gemini = await tryGemini(messages, catalog, false, {
+      omitFunctionCalls: true,
+      system: chatSystem(),
+    });
+    if (gemini?.mode === 'gemini' && gemini.text?.trim()) return { text: gemini.text.trim() };
+    return { text: local.text };
+  }
   const gemini = await tryGemini(messages, catalog, true);
   if (gemini?.tool) return { tool: sanitizeCriteria(gemini.tool, catalog) };
   return { tool: sanitizeCriteria(local, catalog) };
 }
 
-async function tryGemini(messages, catalog, allowTools) {
+async function tryGemini(messages, catalog, allowTools, options = {}) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return null;
   try {
     const result = await completeWithGemini({
       apiKey,
-      model: process.env.GEMINI_MODEL?.trim() || 'gemini-flash-latest',
-      system: systemPrompt(catalog),
-      contents: toGeminiContents(messages),
+      model: process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash-lite',
+      system: options.system || systemPrompt(catalog),
+      contents: toGeminiContents(messages, { omitFunctionCalls: options.omitFunctionCalls === true }),
       allowTools,
     });
     return { ...result, mode: 'gemini' };
@@ -115,12 +123,14 @@ async function tryGemini(messages, catalog, allowTools) {
   }
 }
 
-function annotate(text, gemini) {
-  if (!gemini) return `${text} Mapped locally because GEMINI_API_KEY is not set.`;
-  if (gemini.mode === 'gemini-error') {
-    return `${text} The model was unavailable, so this used the local search mapper.`;
-  }
-  return text;
+function chatSystem() {
+  return [
+    'You are the CoreExtract customer search assistant.',
+    'The user is greeting you or asking what this chat can do.',
+    'Answer in one or two sentences.',
+    'They can ask for customers in plain language, and you update the customer grid with the same filters as a saved search.',
+    'Do not invent customer rows, counts, or filters, and do not claim the grid changed.',
+  ].join(' ');
 }
 
 function redact(text) {

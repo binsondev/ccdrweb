@@ -92,5 +92,5 @@ test('a tool result is answered with text and no second search', async (t) => {
   const assistant = result.newMessages.find((message) => message.role === 'assistant');
   assert.equal(assistant?.toolCalls, undefined);
   assert.match(String(assistant?.content), /2 records/);
-  assert.match(String(assistant?.content), /GEMINI_API_KEY/);
+  assert.doesNotMatch(String(assistant?.content), /unavailable/);
 });

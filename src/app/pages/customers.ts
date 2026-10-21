@@ -322,7 +322,6 @@ import { StatusBanner } from '../shared/status-banner';
         </aside>
 
         <section class="grid min-w-0 gap-4">
-          <ccdr-customer-chat />
           <input
             hlmInput
             type="search"
@@ -603,6 +602,7 @@ import { StatusBanner } from '../shared/status-banner';
         </form>
       </aside>
     }
+    <ccdr-customer-chat />
   `,
 })
 export class CustomersPage {

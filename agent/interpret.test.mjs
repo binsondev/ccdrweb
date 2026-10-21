@@ -101,6 +101,13 @@ test('unknown attribute codes are dropped when the catalog is known', () => {
   assert.equal(result.q, 'sharma');
 });
 
+test('a capability question stays in chat', () => {
+  const result = interpretQuestion('what we can do here', catalog);
+  assert.equal(result.chatOnly, true);
+  assert.equal(result.q, undefined);
+  assert.equal(result.filter, undefined);
+});
+
 test('unmatched words stay in q', () => {
   const result = interpretQuestion('patients in mumbai', catalog);
   assert.equal(result.recordType, 'patient');

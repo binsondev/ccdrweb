@@ -104,10 +104,10 @@ export function interpretQuestion(question, catalog) {
   if (!original) {
     return { recordType: '', q: '', filter: [] };
   }
-  if (/^(hi|hello|hey|help)[.!?\s]*$/i.test(original)) {
+  if (isCapability(original)) {
     return {
       chatOnly: true,
-      text: 'Ask for customers in plain language, for example “patients over 60” or “show everyone”. I update the grid with the same filters as a saved search.',
+      text: 'Ask for the customers you want in plain language. I update the grid with the same filters as a saved search. Say “show everyone” to clear the current search.',
     };
   }
   if (isClear(original)) {
@@ -315,6 +315,15 @@ function normalizeCatalog(parsed) {
     }
     : { recordType: '', q: '', filter: [] };
   return { recordTypes, attributes, current };
+}
+
+function isCapability(question) {
+  const text = String(question ?? '').trim();
+  if (/^(hi|hello|hey|help|thanks|thank you)[.!?\s]*$/i.test(text)) return true;
+  if (/\b(?:find|search|list|show|named|called|filter|patient|customer|record)\b/i.test(text)) return false;
+  if (/\bwhat\b/i.test(text) && /\b(?:can|could|do|does)\b/i.test(text)) return true;
+  if (/\bhow\b/i.test(text) && /\b(?:use|work|works|help)\b/i.test(text)) return true;
+  return false;
 }
 
 function isClear(question) {

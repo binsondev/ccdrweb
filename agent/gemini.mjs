@@ -67,7 +67,8 @@ export async function completeWithGemini({ apiKey, model, system, contents, allo
   return { text: text.trim(), tool };
 }
 
-export function toGeminiContents(messages) {
+export function toGeminiContents(messages, options = {}) {
+  const omitFunctionCalls = options.omitFunctionCalls === true;
   const contents = [];
   for (const message of messages ?? []) {
     if (!message || message.role === 'system' || message.role === 'developer') continue;
@@ -79,6 +80,7 @@ export function toGeminiContents(messages) {
     if (message.role === 'assistant') {
       const text = textOf(message);
       if (text) pushPart(contents, 'model', { text });
+      if (omitFunctionCalls) continue;
       for (const call of message.toolCalls ?? []) {
         let args = {};
         try {
@@ -93,6 +95,11 @@ export function toGeminiContents(messages) {
       continue;
     }
     if (message.role === 'tool') {
+      if (omitFunctionCalls) {
+        const text = textOf(message);
+        if (text) pushPart(contents, 'user', { text: `Search result: ${text}` });
+        continue;
+      }
       const name = toolName(messages, message.toolCallId);
       let response;
       try {
