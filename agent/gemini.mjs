@@ -54,7 +54,7 @@ export async function completeWithGemini({ apiKey, model, system, contents, allo
   let text = '';
   let tool = null;
   for (const part of parts) {
-    if (typeof part?.text === 'string') text += part.text;
+    if (typeof part?.text === 'string' && part.thought !== true) text += part.text;
     const call = part?.functionCall;
     if (call?.name === TOOL_NAME && call.args && typeof call.args === 'object') {
       tool = {

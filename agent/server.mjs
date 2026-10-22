@@ -111,7 +111,7 @@ async function tryGemini(messages, catalog, allowTools, options = {}) {
   try {
     const result = await completeWithGemini({
       apiKey,
-      model: process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash-lite',
+      model: process.env.GEMINI_MODEL?.trim() || 'gemma-4-26b-a4b-it',
       system: options.system || systemPrompt(catalog),
       contents: toGeminiContents(messages, { omitFunctionCalls: options.omitFunctionCalls === true }),
       allowTools,

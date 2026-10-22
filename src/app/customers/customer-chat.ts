@@ -170,7 +170,7 @@ export class CustomerChat {
     }
     const answered = this.messages().slice(before).some((message) => message.role === 'assistant');
     if (!answered) {
-      this.error.set('The search assistant did not answer. Run npm start so the AG-UI agent is available on port 4318.');
+      this.error.set('The search assistant did not answer. The search agent is not reachable.');
     }
   }
 }

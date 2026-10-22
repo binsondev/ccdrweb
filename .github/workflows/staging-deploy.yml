@@ -19,6 +19,8 @@ jobs:
       GIT_SHA: ${{ github.sha }}
       DOCKER_BUILDKIT: "1"
       COMPOSE_DOCKER_CLI_BUILD: "1"
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: gemma-4-26b-a4b-it
     defaults:
       run:
         working-directory: infra/stagingdeployment
@@ -50,18 +52,19 @@ jobs:
       - name: Ensure compose network
         run: docker network create ccdr-staging 2>/dev/null || true
 
-      - name: Build web image
-        run: docker compose build ccdr-web
+      - name: Build web and search agent
+        run: docker compose build ccdr-web ccdr-agent
 
-      - name: Deploy web nginx
-        run: docker compose up -d --no-build ccdr-web
+      - name: Deploy web nginx and search agent
+        run: docker compose up -d --no-build ccdr-web ccdr-agent
 
-      - name: Health check SPA and API proxy
+      - name: Health check SPA, API proxy, and search agent
         run: |
           n=1
           while [ "$n" -le 20 ]; do
             if curl -fsS -o /dev/null http://127.0.0.1:8081/ \
-              && curl -fsS -o /dev/null http://127.0.0.1:8081/health; then
+              && curl -fsS -o /dev/null http://127.0.0.1:8081/health \
+              && curl -fsS http://127.0.0.1:8081/ag-ui/health; then
               docker compose ps
               exit 0
             fi
@@ -70,5 +73,5 @@ jobs:
             sleep 3
           done
           docker compose ps
-          docker compose logs --tail=80
+          docker compose logs --tail=80 ccdr-web ccdr-agent
           exit 1

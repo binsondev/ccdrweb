@@ -2,7 +2,7 @@
 
 Self-hosted Angular 22 SPA. Host nginx is not installed; this stack is its own nginx container.
 
-The SPA calls `/api` and `/health` with relative URLs (same as `ng serve` + `proxy.conf.json`). This nginx proxies those paths to `ccdr-api:8080` on the `ccdr-staging` network, so the browser talks to one origin. `/ag-ui/` is proxied to the `ccdr-agent` container, which maps a question onto the existing customer search. Set `GEMINI_API_KEY` in the shell before `docker compose up` when the live model should be used. Without it, the agent maps questions locally.
+The SPA calls `/api` and `/health` with relative URLs (same as `ng serve` + `proxy.conf.json`). This nginx proxies those paths to `ccdr-api:8080` on the `ccdr-staging` network, so the browser talks to one origin. `/ag-ui/` is proxied to the `ccdr-agent` container, which maps a question onto the existing customer search. The staging deploy passes `GEMINI_API_KEY` from the repository secret and sets `GEMINI_MODEL` to `gemma-4-26b-a4b-it`. Without a key, the agent maps questions locally.
 
 | URL | What |
 | --- | --- |
