@@ -35,10 +35,10 @@ export function createAgentServer() {
   });
 }
 
-export function startAgent(port = Number(process.env.PORT || 4318)) {
+export function startAgent(port = Number(process.env.PORT || 4318), host = process.env.HOST || '127.0.0.1') {
   const server = createAgentServer();
   return new Promise((resolve) => {
-    server.listen(port, '127.0.0.1', () => resolve(server));
+    server.listen(port, host, () => resolve(server));
   });
 }
 
@@ -184,6 +184,7 @@ function loadEnv(url) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT || 4318);
-  await startAgent(port);
-  console.log(`CoreExtract AG-UI agent listening on http://127.0.0.1:${port}/ag-ui/customer-search`);
+  const host = process.env.HOST || '127.0.0.1';
+  await startAgent(port, host);
+  console.log(`CoreExtract AG-UI agent listening on http://${host}:${port}/ag-ui/customer-search`);
 }
