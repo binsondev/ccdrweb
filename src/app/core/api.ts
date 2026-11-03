@@ -29,6 +29,22 @@ import type {
   StagedRow,
   UploadBatch,
 } from './models';
+import type {
+  EmailCategory,
+  EmailJob,
+  EmailJobRequest,
+  EmailPreview,
+  EmailProviderList,
+  EmailTemplate,
+} from './email';
+import type {
+  SmsCategory,
+  SmsJob,
+  SmsJobRequest,
+  SmsPreview,
+  SmsProviderList,
+  SmsTemplate,
+} from './sms';
 
 @Injectable({ providedIn: 'root' })
 export class Api {
@@ -310,6 +326,112 @@ export class Api {
 
   saveSettings(uploadCommitPolicy: 'ValidOnly' | 'AllOrNothing') {
     return this.put<SettingsResponse>('/api/settings', { uploadCommitPolicy });
+  }
+
+  smsCategories() {
+    return this.get<SmsCategory[]>('/api/sms/categories');
+  }
+
+  createSmsCategory(body: { name: string; description?: string | null; isActive: boolean }) {
+    return this.post<SmsCategory>('/api/sms/categories', body);
+  }
+
+  updateSmsCategory(body: SmsCategory) {
+    return this.put<SmsCategory>(`/api/sms/categories/${body.id}`, body);
+  }
+
+  deleteSmsCategory(id: string) {
+    return this.delete(`/api/sms/categories/${id}`);
+  }
+
+  smsTemplates(categoryId?: string) {
+    const params = categoryId ? new HttpParams().set('categoryId', categoryId) : undefined;
+    return this.get<SmsTemplate[]>('/api/sms/templates', params);
+  }
+
+  createSmsTemplate(body: Omit<SmsTemplate, 'id' | 'createdAt' | 'updatedAt'>) {
+    return this.post<SmsTemplate>('/api/sms/templates', body);
+  }
+
+  updateSmsTemplate(body: SmsTemplate) {
+    return this.put<SmsTemplate>(`/api/sms/templates/${body.id}`, body);
+  }
+
+  deleteSmsTemplate(id: string) {
+    return this.delete(`/api/sms/templates/${id}`);
+  }
+
+  smsProviders() {
+    return this.get<SmsProviderList>('/api/sms/providers');
+  }
+
+  previewSmsJob(body: SmsJobRequest) {
+    return this.post<SmsPreview>('/api/sms/jobs/preview', body);
+  }
+
+  createSmsJob(body: SmsJobRequest) {
+    return this.post<SmsJob>('/api/sms/jobs', body);
+  }
+
+  smsJobs() {
+    return this.get<SmsJob[]>('/api/sms/jobs');
+  }
+
+  smsJob(id: string) {
+    return this.get<SmsJob>(`/api/sms/jobs/${id}`);
+  }
+
+  emailCategories() {
+    return this.get<EmailCategory[]>('/api/email/categories');
+  }
+
+  createEmailCategory(body: { name: string; description?: string | null; isActive: boolean }) {
+    return this.post<EmailCategory>('/api/email/categories', body);
+  }
+
+  updateEmailCategory(body: EmailCategory) {
+    return this.put<EmailCategory>(`/api/email/categories/${body.id}`, body);
+  }
+
+  deleteEmailCategory(id: string) {
+    return this.delete(`/api/email/categories/${id}`);
+  }
+
+  emailTemplates(categoryId?: string) {
+    const params = categoryId ? new HttpParams().set('categoryId', categoryId) : undefined;
+    return this.get<EmailTemplate[]>('/api/email/templates', params);
+  }
+
+  createEmailTemplate(body: Omit<EmailTemplate, 'id' | 'createdAt' | 'updatedAt'>) {
+    return this.post<EmailTemplate>('/api/email/templates', body);
+  }
+
+  updateEmailTemplate(body: EmailTemplate) {
+    return this.put<EmailTemplate>(`/api/email/templates/${body.id}`, body);
+  }
+
+  deleteEmailTemplate(id: string) {
+    return this.delete(`/api/email/templates/${id}`);
+  }
+
+  emailProviders() {
+    return this.get<EmailProviderList>('/api/email/providers');
+  }
+
+  previewEmailJob(body: EmailJobRequest) {
+    return this.post<EmailPreview>('/api/email/jobs/preview', body);
+  }
+
+  createEmailJob(body: EmailJobRequest) {
+    return this.post<EmailJob>('/api/email/jobs', body);
+  }
+
+  emailJobs() {
+    return this.get<EmailJob[]>('/api/email/jobs');
+  }
+
+  emailJob(id: string) {
+    return this.get<EmailJob>(`/api/email/jobs/${id}`);
   }
 
   platformTenants() {

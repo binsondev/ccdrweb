@@ -12,6 +12,8 @@ import { CustomersStore, type FilterChip } from '../core/customers.store';
 import { displayValue, operatorLabel } from '../core/format';
 import { Customer, FilterableAttribute, SavedSearch } from '../core/models';
 import { CustomerChat } from '../customers/customer-chat';
+import { EmailWizard } from '../customers/email-wizard';
+import { SmsWizard } from '../customers/sms-wizard';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
@@ -23,6 +25,8 @@ import { StatusBanner } from '../shared/status-banner';
     HlmLabel,
     HlmSeparator,
     CustomerChat,
+    EmailWizard,
+    SmsWizard,
     StatusBanner,
     ...HlmAlertImports,
     ...HlmCardImports,
@@ -51,7 +55,28 @@ import { StatusBanner } from '../shared/status-banner';
           {{ panelOpen() ? 'Hide filters' : 'Show filters' }}
         </button>
         @if (auth.canCustomerWrite()) {
-          <button hlmBtn size="sm" class="ml-auto" type="button" (click)="openCompose()">
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            class="ml-auto"
+            type="button"
+            [disabled]="store.count() === 0 && picked().length === 0"
+            (click)="smsOpen.set(true)"
+          >
+            Send SMS
+          </button>
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            type="button"
+            [disabled]="store.count() === 0 && picked().length === 0"
+            (click)="emailOpen.set(true)"
+          >
+            Send email
+          </button>
+          <button hlmBtn size="sm" type="button" (click)="openCompose()">
             New record
           </button>
         }
@@ -384,6 +409,9 @@ import { StatusBanner } from '../shared/status-banner';
                   <table hlmTable>
                     <thead hlmTHead>
                       <tr hlmTr>
+                        @if (auth.canCustomerWrite()) {
+                          <th hlmTh class="w-10"></th>
+                        }
                         @for (col of columns(); track col.code) {
                           <th hlmTh>{{ col.label }}</th>
                         }
@@ -393,7 +421,7 @@ import { StatusBanner } from '../shared/status-banner';
                     <tbody hlmTBody>
                       @if (!store.customers().length) {
                         <tr hlmTr>
-                          <td hlmTd [attr.colspan]="columns().length + 1" class="text-muted-foreground">
+                          <td hlmTd [attr.colspan]="columns().length + (auth.canCustomerWrite() ? 2 : 1)" class="text-muted-foreground">
                             No records match these filters. Clear a chip or widen the range.
                           </td>
                         </tr>
@@ -405,6 +433,15 @@ import { StatusBanner } from '../shared/status-banner';
                             [class.bg-muted]="selected()?.id === row.id"
                             (click)="openRecord(row)"
                           >
+                            @if (auth.canCustomerWrite()) {
+                              <td hlmTd (click)="$event.stopPropagation()">
+                                <input
+                                  type="checkbox"
+                                  [checked]="picked().includes(row.id)"
+                                  (change)="togglePick(row.id, $event)"
+                                />
+                              </td>
+                            }
                             @for (col of columns(); track col.code) {
                               <td hlmTd>{{ cellValue(row, col.code) }}</td>
                             }
@@ -602,6 +639,22 @@ import { StatusBanner } from '../shared/status-banner';
         </form>
       </aside>
     }
+    @if (smsOpen()) {
+      <ccdr-sms-wizard
+        [criteria]="store.searchCriteria()"
+        [savedSearchId]="store.activeSavedId()"
+        [customerIds]="picked()"
+        (closed)="smsOpen.set(false)"
+      />
+    }
+    @if (emailOpen()) {
+      <ccdr-email-wizard
+        [criteria]="store.searchCriteria()"
+        [savedSearchId]="store.activeSavedId()"
+        [customerIds]="picked()"
+        (closed)="emailOpen.set(false)"
+      />
+    }
     <ccdr-customer-chat />
   `,
 })
@@ -612,6 +665,9 @@ export class CustomersPage {
   protected readonly operatorLabel = operatorLabel;
   protected readonly panelOpen = signal(true);
   protected readonly selected = signal<Customer | null>(null);
+  protected readonly smsOpen = signal(false);
+  protected readonly emailOpen = signal(false);
+  protected readonly picked = signal<string[]>([]);
   protected readonly editingRecord = signal(false);
   protected readonly editValues = signal<Record<string, string>>({});
   protected readonly composing = signal(false);
@@ -747,6 +803,11 @@ export class CustomersPage {
 
   protected onPageSize(event: Event) {
     this.store.setLimit(Number((event.target as HTMLSelectElement).value));
+  }
+
+  protected togglePick(id: string, event: Event) {
+    const on = (event.target as HTMLInputElement).checked;
+    this.picked.update((ids) => (on ? [...ids, id] : ids.filter((item) => item !== id)));
   }
 
   protected openRecord(row: Customer) {

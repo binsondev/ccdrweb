@@ -155,6 +155,8 @@ export class Shell {
         items: [
           { path: '/app/record-types', label: 'Record types', hint: 'Patient, vendor, …' },
           { path: '/app/attributes', label: 'Attributes', hint: 'Per record type' },
+          { path: '/app/sms', label: 'SMS', hint: 'Categories and sends' },
+          { path: '/app/email', label: 'Email', hint: 'Categories and sends' },
         ],
       });
       const intake: { path: string; label: string; hint: string }[] = [];
@@ -203,6 +205,20 @@ export class Shell {
         kicker: 'Catalog',
         title: 'Attributes',
         blurb: 'Each field belongs to one record type. Codes are unique within that type.',
+      };
+    }
+    if (url.includes('/sms')) {
+      return {
+        kicker: 'Catalog',
+        title: 'SMS',
+        blurb: 'Name message categories and templates, then review what was submitted.',
+      };
+    }
+    if (url.includes('/email')) {
+      return {
+        kicker: 'Catalog',
+        title: 'Email',
+        blurb: 'Name email categories and templates, then review what was submitted.',
       };
     }
     if (url.includes('/mappings/')) {

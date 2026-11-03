@@ -88,6 +88,16 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/uploads').then((m) => m.UploadsPage),
       },
       {
+        path: 'sms',
+        canActivate: [tenantGuard],
+        loadComponent: () => import('./pages/sms').then((m) => m.SmsPage),
+      },
+      {
+        path: 'email',
+        canActivate: [tenantGuard],
+        loadComponent: () => import('./pages/email').then((m) => m.EmailPage),
+      },
+      {
         path: 'settings',
         canActivate: [tenantGuard],
         loadComponent: () => import('./pages/settings').then((m) => m.SettingsPage),
