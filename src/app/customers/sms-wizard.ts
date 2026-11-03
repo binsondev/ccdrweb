@@ -95,8 +95,7 @@ import { SmsCategory, SmsJob, SmsPreview, SmsTemplate, smsPlaceholders } from '.
             <p class="text-sm">
               {{ result.eligible }} ready to send.
               {{ result.skippedNoPhone }} missing a number,
-              {{ result.skippedInvalid }} invalid,
-              {{ result.skippedOptIn }} without opt-in.
+              {{ result.skippedInvalid }} invalid.
             </p>
             @if (result.overCap) {
               <p class="text-destructive text-sm">

@@ -157,6 +157,7 @@ export class Shell {
           { path: '/app/attributes', label: 'Attributes', hint: 'Per record type' },
           { path: '/app/sms', label: 'SMS', hint: 'Categories and sends' },
           { path: '/app/email', label: 'Email', hint: 'Categories and sends' },
+          { path: '/app/whatsapp', label: 'WhatsApp', hint: 'Categories and sends' },
         ],
       });
       const intake: { path: string; label: string; hint: string }[] = [];
@@ -172,7 +173,7 @@ export class Shell {
         access.push({ path: '/app/members', label: 'Members', hint: 'Who may enter' });
       }
       if (this.auth.canMappings()) {
-        access.push({ path: '/app/settings', label: 'Settings', hint: 'Commit policy' });
+        access.push({ path: '/app/settings', label: 'Settings', hint: 'Channels and commit' });
       }
       if (access.length) groups.push({ label: 'Access', items: access });
     }
@@ -221,6 +222,13 @@ export class Shell {
         blurb: 'Name email categories and templates, then review what was submitted.',
       };
     }
+    if (url.includes('/whatsapp')) {
+      return {
+        kicker: 'Catalog',
+        title: 'WhatsApp',
+        blurb: 'Name WhatsApp categories and templates, then review what was submitted.',
+      };
+    }
     if (url.includes('/mappings/')) {
       return {
         kicker: 'Intake',
@@ -253,7 +261,7 @@ export class Shell {
       return {
         kicker: 'Access',
         title: 'Tenant settings',
-        blurb: 'Commit writes valid rows, or nothing if any row fails.',
+        blurb: 'Commit policy, and the SMS, email, and WhatsApp accounts this workspace sends with.',
       };
     }
     if (url.includes('/platform')) {

@@ -98,6 +98,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/email').then((m) => m.EmailPage),
       },
       {
+        path: 'whatsapp',
+        canActivate: [tenantGuard],
+        loadComponent: () => import('./pages/whatsapp').then((m) => m.WhatsAppPage),
+      },
+      {
         path: 'settings',
         canActivate: [tenantGuard],
         loadComponent: () => import('./pages/settings').then((m) => m.SettingsPage),

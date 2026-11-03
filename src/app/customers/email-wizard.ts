@@ -96,8 +96,7 @@ import { EmailCategory, EmailJob, EmailPreview, EmailTemplate, emailPlaceholders
             <p class="text-sm">
               {{ result.eligible }} ready to send.
               {{ result.skippedNoEmail }} missing an address,
-              {{ result.skippedInvalid }} invalid,
-              {{ result.skippedOptIn }} without opt-in.
+              {{ result.skippedInvalid }} invalid.
             </p>
             @if (result.overCap) {
               <p class="text-destructive text-sm">

@@ -14,6 +14,7 @@ import { Customer, FilterableAttribute, SavedSearch } from '../core/models';
 import { CustomerChat } from '../customers/customer-chat';
 import { EmailWizard } from '../customers/email-wizard';
 import { SmsWizard } from '../customers/sms-wizard';
+import { WhatsAppWizard } from '../customers/whatsapp-wizard';
 import { StatusBanner } from '../shared/status-banner';
 
 @Component({
@@ -27,6 +28,7 @@ import { StatusBanner } from '../shared/status-banner';
     CustomerChat,
     EmailWizard,
     SmsWizard,
+    WhatsAppWizard,
     StatusBanner,
     ...HlmAlertImports,
     ...HlmCardImports,
@@ -75,6 +77,16 @@ import { StatusBanner } from '../shared/status-banner';
             (click)="emailOpen.set(true)"
           >
             Send email
+          </button>
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            type="button"
+            [disabled]="store.count() === 0 && picked().length === 0"
+            (click)="whatsAppOpen.set(true)"
+          >
+            Send WhatsApp
           </button>
           <button hlmBtn size="sm" type="button" (click)="openCompose()">
             New record
@@ -655,6 +667,14 @@ import { StatusBanner } from '../shared/status-banner';
         (closed)="emailOpen.set(false)"
       />
     }
+    @if (whatsAppOpen()) {
+      <ccdr-whatsapp-wizard
+        [criteria]="store.searchCriteria()"
+        [savedSearchId]="store.activeSavedId()"
+        [customerIds]="picked()"
+        (closed)="whatsAppOpen.set(false)"
+      />
+    }
     <ccdr-customer-chat />
   `,
 })
@@ -667,6 +687,7 @@ export class CustomersPage {
   protected readonly selected = signal<Customer | null>(null);
   protected readonly smsOpen = signal(false);
   protected readonly emailOpen = signal(false);
+  protected readonly whatsAppOpen = signal(false);
   protected readonly picked = signal<string[]>([]);
   protected readonly editingRecord = signal(false);
   protected readonly editValues = signal<Record<string, string>>({});

@@ -45,6 +45,15 @@ import type {
   SmsProviderList,
   SmsTemplate,
 } from './sms';
+import type {
+  ChannelSettings,
+  WhatsAppCategory,
+  WhatsAppJob,
+  WhatsAppJobRequest,
+  WhatsAppPreview,
+  WhatsAppProviderList,
+  WhatsAppTemplate,
+} from './whatsapp';
 
 @Injectable({ providedIn: 'root' })
 export class Api {
@@ -432,6 +441,71 @@ export class Api {
 
   emailJob(id: string) {
     return this.get<EmailJob>(`/api/email/jobs/${id}`);
+  }
+
+  whatsAppCategories() {
+    return this.get<WhatsAppCategory[]>('/api/whatsapp/categories');
+  }
+
+  createWhatsAppCategory(body: { name: string; description?: string | null; isActive: boolean }) {
+    return this.post<WhatsAppCategory>('/api/whatsapp/categories', body);
+  }
+
+  updateWhatsAppCategory(body: WhatsAppCategory) {
+    return this.put<WhatsAppCategory>(`/api/whatsapp/categories/${body.id}`, body);
+  }
+
+  deleteWhatsAppCategory(id: string) {
+    return this.delete(`/api/whatsapp/categories/${id}`);
+  }
+
+  whatsAppTemplates() {
+    return this.get<WhatsAppTemplate[]>('/api/whatsapp/templates');
+  }
+
+  createWhatsAppTemplate(body: {
+    categoryId: string;
+    name: string;
+    metaTemplateName?: string | null;
+    language: string;
+    metaCategory: string;
+    body: string;
+    footer?: string | null;
+    isActive: boolean;
+  }) {
+    return this.post<WhatsAppTemplate>('/api/whatsapp/templates', body);
+  }
+
+  updateWhatsAppTemplate(body: WhatsAppTemplate) {
+    return this.put<WhatsAppTemplate>(`/api/whatsapp/templates/${body.id}`, body);
+  }
+
+  deleteWhatsAppTemplate(id: string) {
+    return this.delete(`/api/whatsapp/templates/${id}`);
+  }
+
+  whatsAppProviders() {
+    return this.get<WhatsAppProviderList>('/api/whatsapp/providers');
+  }
+
+  previewWhatsAppJob(body: WhatsAppJobRequest) {
+    return this.post<WhatsAppPreview>('/api/whatsapp/jobs/preview', body);
+  }
+
+  createWhatsAppJob(body: WhatsAppJobRequest) {
+    return this.post<WhatsAppJob>('/api/whatsapp/jobs', body);
+  }
+
+  whatsAppJobs() {
+    return this.get<WhatsAppJob[]>('/api/whatsapp/jobs');
+  }
+
+  channelSettings() {
+    return this.get<ChannelSettings>('/api/settings/channels');
+  }
+
+  saveChannelSettings(body: Record<string, unknown>) {
+    return this.put<ChannelSettings>('/api/settings/channels', body);
   }
 
   platformTenants() {
